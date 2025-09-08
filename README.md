@@ -56,7 +56,7 @@ fn main() {
 
     // Update element at index 2 to 10
     seg_tree.update(2, 10);
-    
+
     // Query again - sum should reflect the change
     assert_eq!(seg_tree.query(1, 4), 16); // 2 + 10 + 4
     assert_eq!(seg_tree.query(0, 5), 22); // 1 + 2 + 10 + 4 + 5
@@ -72,15 +72,15 @@ use array_range_query::{SegTreeSum, SegTreeMin, SegTreeMax};
 
 fn main() {
     let values = vec![3, 1, 4, 1, 5, 9, 2, 6];
-    
+
     // Range sum queries
     let mut sum_tree = SegTreeSum::<i32>::from_vec(&values);
     assert_eq!(sum_tree.query(2, 6), 19); // 4 + 1 + 5 + 9
-    
+
     // Range minimum queries
     let mut min_tree = SegTreeMin::<i32>::from_vec(&values);
     assert_eq!(min_tree.query(2, 6), 1); // min(4, 1, 5, 9)
-    
+
     // Range maximum queries
     let mut max_tree = SegTreeMax::<i32>::from_vec(&values);
     assert_eq!(max_tree.query(2, 6), 9); // max(4, 1, 5, 9)
@@ -125,10 +125,10 @@ fn main() {
 
     // Add 10 to all elements in range [1, 4)
     lazy_tree.update(1, 4, 10);
-    
+
     // Query the updated range
     assert_eq!(lazy_tree.query(1, 4), 39); // (2+10) + (3+10) + (4+10)
-    
+
     // Total sum should be updated too
     assert_eq!(lazy_tree.query(0, 5), 45); // 1 + 12 + 13 + 14 + 5
 }
@@ -145,7 +145,7 @@ fn main() {
     let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
     tree.update(1, 3, 5);
     assert_eq!(tree.query(0, 2), 8);  // 1 + (2+5)
-    assert_eq!(tree.query(1, 4), 21); // (2+5) + (3+5) + 4
+    assert_eq!(tree.query(1, 4), 19); // 7 + 8 + 4 = 19
 
     // Range add + range min
     let values = vec![5, 2, 8, 1, 9, 3];
@@ -196,7 +196,7 @@ fn main() {
         Point { x: 3, y: 1 },
         Point { x: 2, y: 4 },
     ];
-    
+
     let tree = SegTree::<PointMaxSpec>::from_vec(&points);
     let max_point = tree.query(0, 3);
     assert_eq!(max_point.x, 3);
@@ -224,7 +224,7 @@ fn main() {
 
 **Regular Segment Trees:**
 - `SegTreeSum<T>` - Range sum queries
-- `SegTreeMin<T>` - Range minimum queries  
+- `SegTreeMin<T>` - Range minimum queries
 - `SegTreeMax<T>` - Range maximum queries
 
 **Lazy Segment Trees:**

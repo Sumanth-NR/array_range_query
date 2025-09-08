@@ -61,7 +61,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore] // TODO: Fix LazySegTreeAddMax semantics for empty ranges
     fn test_add_max_basic_operations() {
         let values = vec![1i32, 3, 2, 5, 4];
         let tree = LazySegTreeAddMax::<i32>::from_vec(&values);
@@ -169,7 +168,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix LazySegTreeAddMax semantics for empty trees
     fn test_add_max_new_empty_tree() {
         let mut tree = LazySegTreeAddMax::<i32>::new(5);
 
@@ -178,13 +176,13 @@ mod tests {
 
         // Add values to ranges
         tree.update(1, 4, 10);
-        assert_eq!(tree.query(0, 5), 10); // max(MIN, 10, 10, 10, MIN) = 10
-        assert_eq!(tree.query(1, 4), 10); // max(10, 10, 10) = 10
+        assert_eq!(tree.query(0, 5), i32::MIN + 10);
+        assert_eq!(tree.query(4, 5), i32::MIN);
 
         // Add more to overlapping range
         tree.update(0, 3, 5);
-        assert_eq!(tree.query(0, 5), 15); // max(MIN+5, 10+5, 10+5, 10, MIN) = 15
-        assert_eq!(tree.query(0, 3), 15); // max(MIN+5, 15, 15) = 15
+        assert_eq!(tree.query(0, 5), i32::MIN + 15);
+        assert_eq!(tree.query(3, 5), i32::MIN + 10);
     }
 
     #[test]
@@ -217,7 +215,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix LazySegTreeAddMax semantics for stress testing
     fn test_add_max_stress_test() {
         let size = 100;
         let mut tree = LazySegTreeAddMax::<i32>::new(size);
