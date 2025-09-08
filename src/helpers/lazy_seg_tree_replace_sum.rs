@@ -154,7 +154,7 @@ mod tests {
 
         // Replace [1, 4) with 10
         tree.update(1, 4, 10);
-        assert_eq!(tree.query(0, 5), 0 + 10 + 10 + 10 + 0);
+        assert_eq!(tree.query(0, 5), 30);
         assert_eq!(tree.query(1, 4), 30);
 
         // Replace all with 2

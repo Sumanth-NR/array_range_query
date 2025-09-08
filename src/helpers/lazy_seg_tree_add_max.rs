@@ -218,24 +218,34 @@ mod tests {
     fn test_add_max_stress_test() {
         let size = 100;
         let mut tree = LazySegTreeAddMax::<i32>::new(size);
+        let mut vec = vec![i32::MIN; size];
 
         // Perform many overlapping updates
         for i in 0..50 {
             let left = i * 2;
             let right = std::cmp::min((i + 1) * 2 + 10, size);
             tree.update(left, right, (i + 1) as i32);
+            for item in &mut vec[left..right] {
+                *item += (i + 1) as i32;
+            }
         }
 
         // Verify that queries work correctly after many updates
         let total_max = tree.query(0, size);
-        assert!(total_max > i32::MIN); // Should have accumulated some value
+        let expected_max = vec.iter().max().unwrap_or(&i32::MIN);
+        assert_eq!(
+            total_max, *expected_max,
+            "Expected max value: {}",
+            expected_max
+        );
 
         // Test various range queries
         for i in 0..10 {
             let left = i * 10;
             let right = std::cmp::min((i + 1) * 10, size);
             let range_max = tree.query(left, right);
-            assert!(range_max >= i32::MIN); // Should be valid
+            let expected_max = vec[left..right].iter().max().unwrap_or(&i32::MIN);
+            assert_eq!(range_max, *expected_max);
         }
     }
 }

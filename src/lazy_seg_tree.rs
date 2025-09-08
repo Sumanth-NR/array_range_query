@@ -398,7 +398,7 @@ where
             })
             .collect();
         let data_values = data_values.iter().collect::<Vec<_>>();
-        let tag_values = tags.iter().map(|x| x).collect::<Vec<_>>();
+        let tag_values = tags.iter().collect::<Vec<_>>();
 
         writeln!(f, "\nData: [")?;
         print_tree_option(f, &data_values, 1, 1, 0, self.max_size)?;
@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_from_vec_and_initial_query() {
-        let tree = LazySegTree::<RangeAddSum>::from_vec(&vec![1, 2, 3, 4, 5]);
+        let tree = LazySegTree::<RangeAddSum>::from_vec(&[1, 2, 3, 4, 5]);
         assert_eq!(tree.query(0, 5), 15);
         assert_eq!(tree.query(2, 4), 7);
     }
