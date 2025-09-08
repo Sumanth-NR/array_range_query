@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "array_range_query"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "min_max_traits",
  "num-traits",
