@@ -1,4 +1,4 @@
-//! array_range_query: See full docs at https://docs.rs/array_range_query or in README.md
+//! array_range_query: See full docs at <https://docs.rs/array_range_query> or in [README.md](../README.md)
 #![doc = include_str!("../README.md")]
 
 pub mod helpers;
