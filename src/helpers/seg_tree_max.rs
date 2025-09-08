@@ -1,4 +1,4 @@
-use crate::seg_tree::{SegTree, SegTreeSpec};
+use crate::{SegTree, SegTreeSpec};
 use min_max_traits::Min as ConstLowerBound;
 use std::marker::PhantomData;
 

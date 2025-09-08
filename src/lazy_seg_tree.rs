@@ -46,7 +46,7 @@ The implementation is deliberately generic and configurable via the
 
 
 ```rust
-# use crate::lazy_seg_tree::{LazySegTree, LazySegTreeSpec};
+# use array_range_query::{LazySegTree, LazySegTreeSpec};
 # struct RangeAddSum;
 # impl LazySegTreeSpec for RangeAddSum {
 #     type T = i64;

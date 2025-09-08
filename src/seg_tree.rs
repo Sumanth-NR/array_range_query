@@ -21,8 +21,7 @@
 //! Here is how to create a segment tree for range sum queries.
 //!
 //! ```rust
-//! // In your own code, you would use: use segtree_rs::{SegTree, SegTreeSpec};
-//! use crate::{SegTree, SegTreeSpec};
+//! use array_range_query::{SegTree, SegTreeSpec};
 //!
 //! // 1. Define a struct to represent your operation.
 //! struct SumSpec;

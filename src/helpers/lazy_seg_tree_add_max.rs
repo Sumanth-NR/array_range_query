@@ -1,4 +1,4 @@
-use crate::lazy_seg_tree::{LazySegTree, LazySegTreeSpec};
+use crate::{LazySegTree, LazySegTreeSpec};
 use num_traits::ConstZero;
 use std::marker::PhantomData;
 use std::ops::{Add, Mul};

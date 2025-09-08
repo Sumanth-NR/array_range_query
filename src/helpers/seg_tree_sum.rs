@@ -1,4 +1,4 @@
-use crate::seg_tree::{SegTree, SegTreeSpec};
+use crate::{SegTree, SegTreeSpec};
 use num_traits::ConstZero;
 use std::marker::PhantomData;
 use std::ops::Add;
