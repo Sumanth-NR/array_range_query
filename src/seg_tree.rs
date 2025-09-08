@@ -78,7 +78,7 @@ pub trait SegTreeSpec {
 
 /// A generic Segment Tree data structure.
 ///
-/// See [SegTree](crate::seg_tree::SegTree) for a detailed explanation and examples.
+/// See [SegTree] for a detailed explanation and examples.
 pub struct SegTree<Spec: SegTreeSpec> {
     /// The user-provided size of the array.
     size: usize,

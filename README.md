@@ -150,7 +150,7 @@ assert_eq!(min_tree.query(0, 6), 3); // min(5, 4, 10, 3, 9, 3)
 let values = vec![1, 2, 3, 4, 5];
 let mut replace_tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 replace_tree.update(1, 4, 10); // Replace [1, 4) with 10
-assert_eq!(replace_tree.query(0, 5), 41);
+assert_eq!(replace_tree.query(0, 5), 36); // 1 + 10 + 10 + 10 + 5
 ```
 
 ## Advanced Usage
