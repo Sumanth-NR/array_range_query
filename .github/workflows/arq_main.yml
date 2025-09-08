@@ -1,0 +1,38 @@
+name: Array Range Query CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: rust:slim
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install required tools
+      run: |
+        rustup component add clippy rustfmt
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+    - name: Lint with clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Build
+      run: cargo build --verbose
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Build documentation
+      run: cargo doc --no-deps --document-private-items
