@@ -4,8 +4,8 @@
 //! for common operations like sum, min, max queries and range updates.
 
 use array_range_query::{
-    LazySegTree, LazySegTreeAddSum, LazySegTreeSpec, SegTree, SegTreeMax, SegTreeMin, SegTreeSpec,
-    SegTreeSum,
+    LazySegTree, LazySegTreeAddMin, LazySegTreeAddSum, LazySegTreeReplaceSum, LazySegTreeSpec,
+    SegTree, SegTreeMax, SegTreeMin, SegTreeSpec, SegTreeSum,
 };
 
 fn main() {
@@ -178,24 +178,47 @@ fn lazy_helper_example() {
     println!("5. LazySegTree Helper Types");
     println!("--------------------------");
 
+    // Range add + range sum
     let values = vec![2i32, 4, 6, 8, 10];
-    let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+    let mut sum_tree = LazySegTreeAddSum::<i32>::from_vec(&values);
 
     println!("Initial values: {:?}", values);
-    println!("Sum [0, 5): {}", tree.query(0, 5)); // 30
-    println!("Sum [1, 4): {}", tree.query(1, 4)); // 4 + 6 + 8 = 18
+    println!("Sum [0, 5): {}", sum_tree.query(0, 5)); // 30
+    println!("Sum [1, 4): {}", sum_tree.query(1, 4)); // 4 + 6 + 8 = 18
 
     // Add 3 to range [1, 4)
-    tree.update(1, 4, 3);
+    sum_tree.update(1, 4, 3);
     println!("\nAfter adding 3 to range [1, 4):");
-    println!("Sum [0, 5): {}", tree.query(0, 5)); // 2 + 7 + 9 + 11 + 10 = 39
-    println!("Sum [1, 4): {}", tree.query(1, 4)); // 7 + 9 + 11 = 27
+    println!("Sum [0, 5): {}", sum_tree.query(0, 5)); // 2 + 7 + 9 + 11 + 10 = 39
+    println!("Sum [1, 4): {}", sum_tree.query(1, 4)); // 7 + 9 + 11 = 27
 
     // Add -2 to range [0, 3)
-    tree.update(0, 3, -2);
+    sum_tree.update(0, 3, -2);
     println!("\nAfter subtracting 2 from range [0, 3):");
-    println!("Sum [0, 5): {}", tree.query(0, 5)); // 0 + 5 + 7 + 11 + 10 = 33
-    println!("Sum [0, 3): {}", tree.query(0, 3)); // 0 + 5 + 7 = 12
+    println!("Sum [0, 5): {}", sum_tree.query(0, 5)); // 0 + 5 + 7 + 11 + 10 = 33
+    println!("Sum [0, 3): {}", sum_tree.query(0, 3)); // 0 + 5 + 7 = 12
+
+    // Range add + range min
+    let min_values = vec![5, 2, 8, 1, 9, 3];
+    let mut min_tree = LazySegTreeAddMin::<i32>::from_vec(&min_values);
+    println!("\nInitial min values: {:?}", min_values);
+    println!("Min [0, 6): {}", min_tree.query(0, 6)); // 1
+    min_tree.update(1, 4, 2);
+    println!(
+        "After adding 2 to [1, 4): Min [0, 6): {}",
+        min_tree.query(0, 6)
+    ); // min(5, 4, 10, 3, 9, 3) = 3
+
+    // Range assignment (replace) + range sum
+    let rep_values = vec![1, 2, 3, 4, 5];
+    let mut rep_tree = LazySegTreeReplaceSum::<i32>::from_vec(&rep_values);
+    println!("\nInitial replace values: {:?}", rep_values);
+    println!("Sum [0, 5): {}", rep_tree.query(0, 5)); // 15
+    rep_tree.update(1, 4, 10); // Replace [1, 4) with 10
+    println!(
+        "After replacing [1, 4) with 10: Sum [0, 5): {}",
+        rep_tree.query(0, 5)
+    ); // 1 + 10 + 10 + 10 + 5 = 36
     println!();
 }
 

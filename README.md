@@ -6,6 +6,10 @@
 
 A high-performance, generic implementation of segment trees and lazy segment trees in Rust for efficient range queries and range updates.
 
+Includes helpers for:
+- Range sum, min, max queries
+- Range add, range assignment (replace), and lazy propagation for sum/min/max
+
 ## Features
 
 - **Generic Segment Tree (`SegTree`)**: Supports any associative operation (monoid) with O(log n) point updates and range queries
@@ -133,18 +137,27 @@ fn main() {
 ### Using Lazy Segment Tree Helpers
 
 ```rust
-use array_range_query::LazySegTreeAddSum;
+use array_range_query::{LazySegTreeAddSum, LazySegTreeAddMin, LazySegTreeReplaceSum};
 
 fn main() {
+    // Range add + range sum
     let values = vec![1, 2, 3, 4, 5];
     let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
-    
-    // Add 5 to range [1, 3)
     tree.update(1, 3, 5);
-    
-    // Query updated sums
     assert_eq!(tree.query(0, 2), 8);  // 1 + (2+5)
     assert_eq!(tree.query(1, 4), 21); // (2+5) + (3+5) + 4
+
+    // Range add + range min
+    let values = vec![5, 2, 8, 1, 9, 3];
+    let mut min_tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+    min_tree.update(1, 4, 2);
+    assert_eq!(min_tree.query(0, 6), 3); // min(5, 4, 10, 3, 9, 3)
+
+    // Range assignment (replace) + range sum
+    let values = vec![1, 2, 3, 4, 5];
+    let mut replace_tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+    replace_tree.update(1, 4, 10); // Replace [1, 4) with 10
+    assert_eq!(replace_tree.query(0, 5), 1 + 10 + 10 + 10 + 5);
 }
 ```
 
@@ -217,6 +230,8 @@ fn main() {
 **Lazy Segment Trees:**
 - `LazySegTreeAddSum<T>` - Range add updates, range sum queries
 - `LazySegTreeAddMax<T>` - Range add updates, range max queries
+- `LazySegTreeAddMin<T>` - Range add updates, range min queries
+- `LazySegTreeReplaceSum<T>` - Range assignment (replace) updates, range sum queries
 
 ## Performance
 

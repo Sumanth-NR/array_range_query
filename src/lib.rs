@@ -87,6 +87,11 @@
 //!
 //! ### Lazy Segment Tree Helpers
 //!
+//! - [`LazySegTreeAddSum<T>`]: Range add updates, range sum queries
+//! - [`LazySegTreeAddMax<T>`]: Range add updates, range max queries
+//! - [`LazySegTreeAddMin<T>`]: Range add updates, range min queries
+//! - [`LazySegTreeReplaceSum<T>`]: Range assignment (replace) updates, range sum queries
+//!
 //! ```rust
 //! use array_range_query::{LazySegTreeAddSum, LazySegTreeAddMax};
 //!
@@ -124,9 +129,7 @@ pub mod helpers;
 mod lazy_seg_tree;
 mod seg_tree;
 
-pub use helpers::{
-    LazySegTreeAddMax, LazySegTreeAddMaxSpec, LazySegTreeAddSum, LazySegTreeAddSumSpec, SegTreeMax,
-    SegTreeMaxSpec, SegTreeMin, SegTreeMinSpec, SegTreeSum, SegTreeSumSpec,
-};
+pub use helpers::{LazySegTreeAddMax, LazySegTreeAddMin, LazySegTreeAddSum, LazySegTreeReplaceSum};
+pub use helpers::{SegTreeMax, SegTreeMin, SegTreeSum};
 pub use lazy_seg_tree::{LazySegTree, LazySegTreeSpec};
 pub use seg_tree::{SegTree, SegTreeSpec};
