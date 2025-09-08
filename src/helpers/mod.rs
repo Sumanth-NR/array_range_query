@@ -1,3 +1,8 @@
+//! Helper types for common segment tree operations.
+//!
+//! This module provides pre-built specifications and type aliases for common
+//! segment tree operations like sum, min, max queries, and range add operations.
+
 mod seg_tree_max;
 mod seg_tree_min;
 mod seg_tree_sum;

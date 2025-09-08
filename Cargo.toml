@@ -1,8 +1,27 @@
 [package]
 name = "array_range_query"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+authors = ["Sumanth NR <sumanth.nr.w@gmail.com>"]
+description = "Generic segment tree and lazy segment tree implementations for efficient range queries and range updates"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/Sumanth-NR/array_range_query"
+homepage = "https://github.com/Sumanth-NR/array_range_query"
+documentation = "https://docs.rs/array_range_query"
+keywords = ["segment-tree", "range-query", "data-structures", "algorithms", "tree"]
+categories = ["data-structures", "algorithms"]
 
 [dependencies]
 min_max_traits = "0.1.0"
 num-traits = "0.2.19"
+
+[dev-dependencies]
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
