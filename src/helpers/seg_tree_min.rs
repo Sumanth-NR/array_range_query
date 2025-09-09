@@ -20,8 +20,10 @@ where
 {
     type T = T;
     const ID: Self::T = <T as ConstUpperBound>::MAX;
-    fn op(a: &Self::T, b: &Self::T) -> Self::T {
-        a.clone().min(b.clone())
+    fn op(a: &mut Self::T, b: &Self::T) {
+        if *a > *b {
+            *a = b.clone();
+        }
     }
 }
 

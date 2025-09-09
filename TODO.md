@@ -6,6 +6,7 @@
 
 - [x] Change queries and updates to use `std::ops::{Bound, RangeBounds}`
   - [ ] In the future, consider changing the API to use `core::range`
+- [ ] Use the AddAssign style instead of Add style everywhere
 - [ ] Improve SegTree type bounds
 
 ## Version 0.4.0

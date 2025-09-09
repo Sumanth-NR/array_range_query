@@ -44,8 +44,8 @@ fn custom_sum_example() {
         type T = i64;
         const ID: Self::T = 0; // Identity element for addition
 
-        fn op(a: &Self::T, b: &Self::T) -> Self::T {
-            a + b
+        fn op(a: &mut Self::T, b: &Self::T) {
+            *a += *b;
         }
     }
 
@@ -107,8 +107,10 @@ fn custom_min_example() {
         type T = i32;
         const ID: Self::T = i32::MAX; // Identity for min is maximum possible value
 
-        fn op(a: &Self::T, b: &Self::T) -> Self::T {
-            (*a).min(*b)
+        fn op(a: &mut Self::T, b: &Self::T) {
+            if *a > *b {
+                *a = *b;
+            }
         }
     }
 

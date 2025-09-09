@@ -6,7 +6,7 @@
 use crate::{SegTree, SegTreeSpec};
 use num_traits::ConstZero;
 use std::marker::PhantomData;
-use std::ops::Add;
+use std::ops::AddAssign;
 
 /// Specification for segment trees that perform sum operations.
 ///
@@ -16,13 +16,13 @@ pub struct SegTreeSumSpec<T>(PhantomData<T>);
 
 impl<T> SegTreeSpec for SegTreeSumSpec<T>
 where
-    T: Clone + ConstZero + Add<Output = T>,
+    T: Clone + ConstZero + AddAssign<T>,
 {
     type T = T;
     const ID: Self::T = <T as ConstZero>::ZERO;
 
-    fn op(a: &Self::T, b: &Self::T) -> Self::T {
-        a.clone() + b.clone()
+    fn op(a: &mut Self::T, b: &Self::T) {
+        *a += b.clone();
     }
 }
 

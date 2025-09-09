@@ -42,8 +42,8 @@ impl SegTreeSpec for SumSpec {
     type T = i64;
     const ID: Self::T = 0; // Identity element for addition
 
-    fn op(a: &Self::T, b: &Self::T) -> Self::T {
-        a + b
+    fn op(a: &mut Self::T, b: &Self::T) {
+        *a += *b;
     }
 }
 
@@ -174,11 +174,9 @@ impl SegTreeSpec for PointMaxSpec {
     type T = Point;
     const ID: Self::T = Point { x: i32::MIN, y: i32::MIN };
 
-    fn op(a: &Self::T, b: &Self::T) -> Self::T {
-        Point {
-            x: a.x.max(b.x),
-            y: a.y.max(b.y),
-        }
+    fn op(a: &mut Self::T, b: &Self::T) {
+        a.x = a.x.max(b.x);
+        a.y = a.y.max(b.y);
     }
 }
 

@@ -33,9 +33,9 @@
 //!     // The identity element for the operation (0 for addition).
 //!     const ID: Self::T = 0;
 //!
-//!     // The associative binary operation.
-//!     fn op(a: &Self::T, b: &Self::T) -> Self::T {
-//!         a + b
+//!     // The associative binary operation, performed in-place.
+//!     fn op(a: &mut Self::T, b: &Self::T) {
+//!         *a += *b;
 //!     }
 //! }
 //!
@@ -71,11 +71,12 @@ pub trait SegTreeSpec {
     /// Examples: 0 for addition, 1 for multiplication, `infinity` for minimum.
     const ID: Self::T;
 
-    /// The associative binary operation of the monoid.
+    /// The associative binary operation of the monoid, performed in-place.
     ///
     /// This operation must be associative: `op(a, op(b, c))` must be equal
     /// to `op(op(a, b), c)`.
-    fn op(a: &Self::T, b: &Self::T) -> Self::T;
+    /// Mutates `a` to be the result of the operation.
+    fn op(a: &mut Self::T, b: &Self::T);
 }
 
 /// A generic Segment Tree data structure.
@@ -125,7 +126,32 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
 
         // Build the tree by combining children up to the root.
         for i in (1..max_size).rev() {
-            data[i] = Spec::op(&data[i * 2], &data[i * 2 + 1]);
+            let mut v = data[i * 2].clone();
+            Spec::op(&mut v, &data[i * 2 + 1]);
+            data[i] = v;
+        }
+
+        Self {
+            size,
+            max_size,
+            data,
+            _spec: PhantomData,
+        }
+    }
+
+    pub fn from_mut_vec(values: &mut [Spec::T]) -> Self {
+        let size = values.len();
+        let max_size = size.next_power_of_two();
+        let mut data = vec![Spec::ID; 2 * max_size];
+
+        // Copy initial values to the leaf nodes.
+        data[max_size..(max_size + size)].clone_from_slice(values);
+
+        // Build the tree by combining children up to the root.
+        for i in (1..max_size).rev() {
+            let mut v = data[i * 2].clone();
+            Spec::op(&mut v, &data[i * 2 + 1]);
+            data[i] = v;
         }
 
         Self {
@@ -182,18 +208,19 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
 
         while left < right {
             if left & 1 == 1 {
-                result_left = Spec::op(&result_left, &self.data[left]);
+                Spec::op(&mut result_left, &self.data[left]);
                 left += 1;
             }
             if right % 2 == 1 {
                 right -= 1;
-                result_right = Spec::op(&self.data[right], &result_right);
+                Spec::op(&mut result_right, &self.data[right]);
             }
             left /= 2;
             right /= 2;
         }
 
-        Spec::op(&result_left, &result_right)
+        Spec::op(&mut result_left, &result_right);
+        result_left
     }
 
     /// Private helper to recompute parent nodes from a leaf up to the root.
@@ -202,7 +229,9 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         // We move up to the parent and recompute its value.
         while index > 1 {
             index /= 2;
-            self.data[index] = Spec::op(&self.data[index * 2], &self.data[index * 2 + 1]);
+            let mut v = self.data[index * 2].clone();
+            Spec::op(&mut v, &self.data[index * 2 + 1]);
+            self.data[index] = v;
         }
     }
 }
@@ -217,8 +246,8 @@ mod tests {
     impl SegTreeSpec for SumSpec {
         type T = i64;
         const ID: Self::T = 0;
-        fn op(a: &Self::T, b: &Self::T) -> Self::T {
-            a + b
+        fn op(a: &mut Self::T, b: &Self::T) {
+            *a += *b;
         }
     }
 
@@ -227,8 +256,10 @@ mod tests {
     impl SegTreeSpec for MaxSpec {
         type T = i32;
         const ID: Self::T = i32::MIN;
-        fn op(a: &Self::T, b: &Self::T) -> Self::T {
-            *a.max(b)
+        fn op(a: &mut Self::T, b: &Self::T) {
+            if *a < *b {
+                *a = *b;
+            }
         }
     }
 
