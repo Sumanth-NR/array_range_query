@@ -21,11 +21,16 @@ Includes helpers for:
 
 ## Quick Start
 
-Add this to your `Cargo.toml`:
+Use `cargo add` (from the `cargo-edit` tool) to add the crate and automatically insert the correct version into your `Cargo.toml`:
 
-```toml
-[dependencies]
-array_range_query = "0.1.0"
+```bash
+cargo add array_range_query
+```
+
+If you prefer to pin a specific version, you can specify it when adding:
+
+```bash
+cargo add array_range_query@0.1.2
 ```
 
 ## Basic Usage
