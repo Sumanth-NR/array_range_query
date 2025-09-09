@@ -196,30 +196,51 @@ assert_eq!(max_point.y, 4);
 
 ### SegTree
 
-- `SegTree::new(size: usize)` - Create empty tree with given size
-- `SegTree::from_vec(values: &[T])` - Build tree from initial values
-- `query(&self, left: usize, right: usize) -> T` - Query range [left, right)
-- `update(&mut self, index: usize, value: T)` - Update single element
+- `SegTree::new(size: usize)` — Create empty tree with given size.
+- `SegTree::from_vec(values: &[T])` — Build tree from initial values.
+- `query(&self, range: impl RangeBounds<usize>) -> T` — Query a range (half-open, e.g. `2..5`).
+- `update(&mut self, index: usize, value: T)` — Update a single element.
+
+#### Trait: `SegTreeSpec`
+```rust
+trait SegTreeSpec {
+    type T: Clone;
+    const ID: Self::T;
+    fn op(a: &mut Self::T, b: &Self::T);
+}
+```
 
 ### LazySegTree
 
-- `LazySegTree::new(size: usize)` - Create empty lazy tree
-- `LazySegTree::from_vec(values: &[T])` - Build from initial values
-- `query(&self, left: usize, right: usize) -> T` - Query range [left, right)
-- `update(&mut self, left: usize, right: usize, value: U)` - Update range [left, right)
+- `LazySegTree::new(size: usize)` — Create empty lazy tree.
+- `LazySegTree::from_vec(values: &[T])` — Build from initial values.
+- `query(&self, range: impl RangeBounds<usize>) -> T` — Query a range (half-open).
+- `update(&mut self, range: impl RangeBounds<usize>, value: U)` — Update a range.
+
+#### Trait: `LazySegTreeSpec`
+```rust
+trait LazySegTreeSpec {
+    type T: Clone;
+    type U: Clone;
+    const ID: Self::T;
+    fn op_on_data(d1: &mut Self::T, d2: &Self::T);
+    fn op_on_update(u1: &mut Self::U, u2: &Self::U);
+    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize);
+}
+```
 
 ### Helper Types
 
 **Regular Segment Trees:**
-- `SegTreeSum<T>` - Range sum queries
-- `SegTreeMin<T>` - Range minimum queries
-- `SegTreeMax<T>` - Range maximum queries
+- `SegTreeSum<T>` — Range sum queries
+- `SegTreeMin<T>` — Range minimum queries
+- `SegTreeMax<T>` — Range maximum queries
 
 **Lazy Segment Trees:**
-- `LazySegTreeAddSum<T>` - Range add updates, range sum queries
-- `LazySegTreeAddMax<T>` - Range add updates, range max queries
-- `LazySegTreeAddMin<T>` - Range add updates, range min queries
-- `LazySegTreeReplaceSum<T>` - Range assignment (replace) updates, range sum queries
+- `LazySegTreeAddSum<T>` — Range add updates, range sum queries
+- `LazySegTreeAddMax<T>` — Range add updates, range max queries
+- `LazySegTreeAddMin<T>` — Range add updates, range min queries
+- `LazySegTreeReplaceSum<T>` — Range assignment (replace) updates, range sum queries
 
 ## Performance
 
