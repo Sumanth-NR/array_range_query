@@ -96,19 +96,19 @@ impl LazySegTreeSpec for RangeAddSum {
     type U = i64; // Update type (add values)
     const ID: Self::T = 0;
 
-    // Combine two data values
-    fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T {
-        d1 + d2
+    // Combine two data values, performed in-place
+    fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
+        *d1 += *d2;
     }
 
-    // Compose two updates
-    fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U {
-        u1 + u2
+    // Compose two updates, performed in-place
+    fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
+        *u1 += *u2;
     }
 
-    // Apply update to data (accounting for range size)
-    fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
-        d + (u * size as i64)
+    // Apply update to data (accounting for range size), performed in-place
+    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+        *d += u * size as i64;
     }
 }
 

@@ -19,17 +19,17 @@ where
 
     const ID: Self::T = <T as ConstZero>::ZERO;
 
-    fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T {
-        d1.clone() + d2.clone()
+    fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
+        *d1 = d1.clone() + d2.clone();
     }
 
     #[allow(unused_variables)]
-    fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U {
-        u2.clone()
+    fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
+        *u1 = u2.clone();
     }
 
-    fn op_update_on_data(u: &Self::U, _d: &Self::T, size: usize) -> Self::T {
-        u.clone() * T::from(size).unwrap_or_else(|| panic!("Failed to convert usize to T"))
+    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+        *d = u.clone() * T::from(size).unwrap_or_else(|| panic!("Failed to convert usize to T"));
     }
 }
 

@@ -23,21 +23,19 @@ where
 
     const ID: Self::T = <T as ConstZero>::ZERO;
 
-    fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T {
-        d1.clone() + d2.clone()
+    fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
+        *d1 = d1.clone() + d2.clone();
     }
 
-    fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::T {
-        u1.clone() + u2.clone()
+    fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
+        *u1 = u1.clone() + u2.clone();
     }
 
-    fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
+    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
         // Manually multiply u by size using repeated addition
-        let mut result = d.clone();
         for _ in 0..size {
-            result = result + u.clone();
+            *d = d.clone() + u.clone();
         }
-        result
     }
 }
 

@@ -99,28 +99,29 @@ pub trait LazySegTreeSpec {
     /// Identity element for `T`.
     const ID: Self::T;
 
-    /// Combine two child values into a parent value.
-    fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T;
+    /// Combine two child values into a parent value, performed in-place.
+    /// Mutates `d1` to be the result of the operation.
+    fn op_on_data(d1: &mut Self::T, d2: &Self::T);
 
-    /// Compose two updates. If update `a` is applied before `b`, then the
-    /// composed update should be `op_on_update(a, b)` (document the intended
-    /// order in non-commutative cases).
-    fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U;
+    /// Compose two updates, performed in-place. If update `a` is applied before `b`,
+    /// then the composed update should be `op_on_update(a, b)` (document the intended
+    /// order in non-commutative cases). Mutates `u1` to be the result.
+    fn op_on_update(u1: &mut Self::U, u2: &Self::U);
 
     /// Apply an update `u` to a node's stored aggregate `d` which represents
-    /// `size` leaves. For example, for range-add + range-sum:
-    /// `op_update_on_data(u, d, size) = d + u * size`.
-    fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T;
+    /// `size` leaves, performed in-place. For example, for range-add + range-sum:
+    /// `*d += u * size`. Mutates `d` to be the result.
+    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize);
 
     /// Helper to combine an existing optional tag with a new tag.
     ///
     /// Default behavior: if there is an existing tag, compose them using
     /// `op_on_update`; otherwise, install `new_tag`.
-    fn op_on_update_option(existing_tag: &Option<Self::U>, new_tag: &Self::U) -> Option<Self::U> {
+    fn op_on_update_option(existing_tag: &mut Option<Self::U>, new_tag: &Self::U) {
         if let Some(existing) = existing_tag {
-            Some(Self::op_on_update(existing, new_tag))
+            Self::op_on_update(existing, new_tag);
         } else {
-            Some(new_tag.clone())
+            *existing_tag = Some(new_tag.clone());
         }
     }
 }
@@ -169,7 +170,9 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         if size > 0 {
             data[max_size..(max_size + size)].clone_from_slice(values);
             for i in (1..max_size).rev() {
-                data[i] = Spec::op_on_data(&data[i * 2], &data[i * 2 + 1]);
+                let mut v = data[i * 2].clone();
+                Spec::op_on_data(&mut v, &data[i * 2 + 1]);
+                data[i] = v;
             }
         }
 
@@ -225,12 +228,11 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         let mut tags = self.tags.borrow_mut();
         if let Some(tag) = tags[index].take() {
             let mut data = self.data.borrow_mut();
-            let old_data = data[index].clone();
-            data[index] = Spec::op_update_on_data(&tag, &old_data, node_size);
+            Spec::op_update_on_data(&tag, &mut data[index], node_size);
 
             if index < self.max_size {
-                tags[index * 2] = Spec::op_on_update_option(&tags[index * 2], &tag);
-                tags[index * 2 + 1] = Spec::op_on_update_option(&tags[index * 2 + 1], &tag);
+                Spec::op_on_update_option(&mut tags[index * 2], &tag);
+                Spec::op_on_update_option(&mut tags[index * 2 + 1], &tag);
             }
         }
     }
@@ -242,12 +244,11 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         let tags = self.tags.get_mut();
         if let Some(tag) = tags[index].take() {
             let data = self.data.get_mut();
-            let old_data = data[index].clone();
-            data[index] = Spec::op_update_on_data(&tag, &old_data, node_size);
+            Spec::op_update_on_data(&tag, &mut data[index], node_size);
 
             if index < self.max_size {
-                tags[index * 2] = Spec::op_on_update_option(&tags[index * 2], &tag);
-                tags[index * 2 + 1] = Spec::op_on_update_option(&tags[index * 2 + 1], &tag);
+                Spec::op_on_update_option(&mut tags[index * 2], &tag);
+                Spec::op_on_update_option(&mut tags[index * 2 + 1], &tag);
             }
         }
     }
@@ -258,7 +259,9 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// only called from `&mut self` paths.
     fn pull_mut(&mut self, index: usize) {
         let data = self.data.get_mut();
-        data[index] = Spec::op_on_data(&data[index * 2], &data[index * 2 + 1]);
+        let mut v = data[index * 2].clone();
+        Spec::op_on_data(&mut v, &data[index * 2 + 1]);
+        data[index] = v;
     }
 
     /// Internal recursive query implementation.
@@ -286,9 +289,10 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         } else {
             // Partial cover — combine children.
             let mid = (node_left + node_right) / 2;
-            let left_result = self.query_internal(index * 2, node_left, left, right, mid);
+            let mut left_result = self.query_internal(index * 2, node_left, left, right, mid);
             let right_result = self.query_internal(index * 2 + 1, mid, left, right, node_right);
-            Spec::op_on_data(&left_result, &right_result)
+            Spec::op_on_data(&mut left_result, &right_result);
+            left_result
         }
     }
 
@@ -312,7 +316,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
             // Fully covered: compose the new tag with any existing tag.
             {
                 let tags = self.tags.get_mut();
-                tags[index] = Spec::op_on_update_option(&tags[index], &value);
+                Spec::op_on_update_option(&mut tags[index], &value);
             }
             // Apply it immediately to the node's stored data (and propagate to children).
             self.push_mut(index, node_right - node_left);
@@ -411,14 +415,14 @@ mod tests {
         type U = i64;
         const ID: Self::T = 0;
 
-        fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T {
-            d1 + d2
+        fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
+            *d1 += *d2;
         }
-        fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U {
-            u1 + u2
+        fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
+            *u1 += *u2;
         }
-        fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
-            d + (u * size as i64)
+        fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+            *d += u * size as i64;
         }
     }
 

@@ -139,18 +139,18 @@ fn custom_lazy_example() {
         const ID: Self::T = 0;
 
         // Combine two sum values
-        fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T {
-            d1 + d2
+        fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
+            *d1 += *d2;
         }
 
         // Compose two add operations
-        fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U {
-            u1 + u2
+        fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
+            *u1 += *u2;
         }
 
         // Apply add operation to sum (multiply by range size)
-        fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
-            d + u * (size as i64)
+        fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+            *d += u * (size as i64);
         }
     }
 
