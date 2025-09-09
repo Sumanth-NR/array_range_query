@@ -52,8 +52,9 @@
 //! assert_eq!(seg_tree.query(..), 21);
 //! ```
 
+use crate::utils;
 use std::marker::PhantomData;
-use std::ops::{Bound, RangeBounds};
+use std::ops::RangeBounds;
 
 /// Defines the monoid operation and element type for a `SegTree`.
 ///
@@ -164,12 +165,8 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
     /// This function panics if the start of the range is greater than the end,
     /// or if the end is out of the bounds of the original array size.
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
-        let (left, right) = self.parse_range(range);
-        assert!(
-            left <= right,
-            "query range start cannot be greater than end"
-        );
-        assert!(right <= self.size, "query range end is out of bounds");
+        let (left, right) = utils::parse_range(range, self.size);
+        utils::validate_range(left, right, self.size);
 
         if left == right {
             return Spec::ID;
@@ -207,20 +204,6 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
             index /= 2;
             self.data[index] = Spec::op(&self.data[index * 2], &self.data[index * 2 + 1]);
         }
-    }
-
-    fn parse_range<R: RangeBounds<usize>>(&self, range: R) -> (usize, usize) {
-        let start = match range.start_bound() {
-            Bound::Included(&s) => s,
-            Bound::Excluded(&s) => s + 1,
-            Bound::Unbounded => 0,
-        };
-        let end = match range.end_bound() {
-            Bound::Included(&e) => e + 1,
-            Bound::Excluded(&e) => e,
-            Bound::Unbounded => self.size,
-        };
-        (start, end)
     }
 }
 

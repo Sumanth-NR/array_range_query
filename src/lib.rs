@@ -4,6 +4,7 @@
 pub mod helpers;
 mod lazy_seg_tree;
 mod seg_tree;
+pub(crate) mod utils;
 
 pub use helpers::{LazySegTreeAddMax, LazySegTreeAddMin, LazySegTreeAddSum, LazySegTreeReplaceSum};
 pub use helpers::{SegTreeMax, SegTreeMin, SegTreeSum};

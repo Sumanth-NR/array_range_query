@@ -4,7 +4,8 @@
 
 ### Version 0.3.0
 
-- [x] Add support for queries and updates to take `std::ops::{Bound, RangeBounds}`
+- [x] Change queries and updates to use `std::ops::{Bound, RangeBounds}`
+  - [ ] In the future, consider changing the API to use `core::range`
 - [ ] Improve SegTree type bounds
 
 ## Version 0.4.0

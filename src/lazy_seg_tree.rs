@@ -75,10 +75,11 @@ The implementation is deliberately generic and configurable via the
   potential runtime failure mode to be aware of.
 */
 
+use crate::utils;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::marker::PhantomData;
-use std::ops::{Bound, RangeBounds};
+use std::ops::RangeBounds;
 
 /// Specification trait for `LazySegTree`.
 ///
@@ -187,8 +188,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// Returns `Spec::ID` for empty ranges.
     /// Panics if the range is invalid.
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
-        let (left, right) = self.parse_range(range);
-        self.validate_range(left, right);
+        let (left, right) = utils::parse_range(range, self.size);
+        utils::validate_range(left, right, self.size);
         if left == right {
             return Spec::ID;
         }
@@ -200,8 +201,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// The range can be any type that implements `RangeBounds<usize>`.
     /// Requires `&mut self`. Panics if range is invalid.
     pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
-        let (left, right) = self.parse_range(range);
-        self.validate_range(left, right);
+        let (left, right) = utils::parse_range(range, self.size);
+        utils::validate_range(left, right, self.size);
         if left == right {
             return;
         }
@@ -324,38 +325,6 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
             // Recompute this node's aggregate after children updates.
             self.pull_mut(index);
         }
-    }
-
-    /// Validate the half-open range `[left, right)`.
-    ///
-    /// Panics with a descriptive message if the range is invalid.
-    fn validate_range(&self, left: usize, right: usize) {
-        assert!(
-            left <= right,
-            "Invalid range: `left` must be less than or equal to `right`. Got left: {}, right: {}",
-            left,
-            right
-        );
-        assert!(
-            right <= self.size,
-            "Out of bounds: `right` must be within the structure's size. Got right: {}, size: {}",
-            right,
-            self.size
-        );
-    }
-
-    fn parse_range<R: RangeBounds<usize>>(&self, range: R) -> (usize, usize) {
-        let start = match range.start_bound() {
-            Bound::Included(&s) => s,
-            Bound::Excluded(&s) => s + 1,
-            Bound::Unbounded => 0,
-        };
-        let end = match range.end_bound() {
-            Bound::Included(&e) => e + 1,
-            Bound::Excluded(&e) => e,
-            Bound::Unbounded => self.size,
-        };
-        (start, end)
     }
 }
 
@@ -483,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Invalid range: got")]
     #[allow(clippy::reversed_empty_ranges)]
     fn test_panic_invalid_range() {
         let tree = LazySegTree::<RangeAddSum>::new(10);
