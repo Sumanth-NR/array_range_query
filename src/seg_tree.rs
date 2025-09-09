@@ -40,19 +40,20 @@
 //! }
 //!
 //! // 3. Create the segment tree with your spec.
-//! let mut values = vec![1, 2, 3, 4, 5];
+//! let values = vec![1, 2, 3, 4, 5];
 //! let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
 //!
 //! // Query the sum of the range [2, 5) -> sum of elements at index 2, 3, and 4.
-//! assert_eq!(seg_tree.query(2, 5), 3 + 4 + 5);
-//! assert_eq!(seg_tree.query(0, 5), 15);
+//! assert_eq!(seg_tree.query(2..5), 12);
+//! assert_eq!(seg_tree.query(..), 15);
 //!
 //! // 4. Update a value and see the query result change.
 //! seg_tree.update(3, 10); // Set the element at index 3 to 10.
-//! assert_eq!(seg_tree.query(0, 5), 1 + 2 + 3 + 10 + 5);
+//! assert_eq!(seg_tree.query(..), 21);
 //! ```
 
 use std::marker::PhantomData;
+use std::ops::{Bound, RangeBounds};
 
 /// Defines the monoid operation and element type for a `SegTree`.
 ///
@@ -151,17 +152,19 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         self.recompute(leaf_index);
     }
 
-    /// Queries the segment tree for the aggregated value in the range `[left, right)`.
+    /// Queries the segment tree for the aggregated value in the given `range`.
     ///
-    /// The range is half-open, including `left` and excluding `right`.
+    /// The range can be any type that implements `RangeBounds<usize>`, such as
+    /// `a..b`, `a..=b`, `..b`, `a..`, or `..`.
     ///
     /// Time complexity: `O(log n)`.
     ///
     /// # Panics
     ///
-    /// This function panics if `left > right` or if `right` is out of the bounds
-    /// of the original array size (`right > self.size`).
-    pub fn query(&self, left: usize, right: usize) -> Spec::T {
+    /// This function panics if the start of the range is greater than the end,
+    /// or if the end is out of the bounds of the original array size.
+    pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
+        let (left, right) = self.parse_range(range);
         assert!(
             left <= right,
             "query range start cannot be greater than end"
@@ -205,6 +208,20 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
             self.data[index] = Spec::op(&self.data[index * 2], &self.data[index * 2 + 1]);
         }
     }
+
+    fn parse_range<R: RangeBounds<usize>>(&self, range: R) -> (usize, usize) {
+        let start = match range.start_bound() {
+            Bound::Included(&s) => s,
+            Bound::Excluded(&s) => s + 1,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(&e) => e + 1,
+            Bound::Excluded(&e) => e,
+            Bound::Unbounded => self.size,
+        };
+        (start, end)
+    }
 }
 
 // Unit tests are placed in a submodule and only compiled when running `cargo test`.
@@ -235,32 +252,33 @@ mod tests {
     #[test]
     fn test_new_empty() {
         let seg_tree = SegTree::<SumSpec>::new(10);
-        assert_eq!(seg_tree.query(0, 10), 0);
+        assert_eq!(seg_tree.query(..), 0);
     }
 
     #[test]
     fn test_from_vec_and_query_all() {
         let values = vec![1, 2, 3, 4, 5];
         let seg_tree = SegTree::<SumSpec>::from_vec(&values);
-        assert_eq!(seg_tree.query(0, 5), 15);
+        assert_eq!(seg_tree.query(..), 15);
     }
 
     #[test]
     fn test_query_sub_ranges() {
         let values = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let seg_tree = SegTree::<SumSpec>::from_vec(&values);
-        assert_eq!(seg_tree.query(0, 3), 6); // 1+2+3
-        assert_eq!(seg_tree.query(2, 5), 12); // 3+4+5
-        assert_eq!(seg_tree.query(4, 8), 26); // 5+6+7+8
-        assert_eq!(seg_tree.query(7, 8), 8); // just 8
+        assert_eq!(seg_tree.query(0..3), 6); // 1+2+3
+        assert_eq!(seg_tree.query(2..5), 12); // 3+4+5
+        assert_eq!(seg_tree.query(4..), 26); // 5+6+7+8
+        assert_eq!(seg_tree.query(..=6), 28); // 1+2+3+4+5+6+7
+        assert_eq!(seg_tree.query(7..8), 8); // just 8
     }
 
     #[test]
     fn test_query_empty_range() {
         let values = vec![1, 2, 3];
         let seg_tree = SegTree::<SumSpec>::from_vec(&values);
-        assert_eq!(seg_tree.query(1, 1), 0);
-        assert_eq!(seg_tree.query(3, 3), 0);
+        assert_eq!(seg_tree.query(1..1), 0);
+        assert_eq!(seg_tree.query(3..3), 0);
     }
 
     #[test]
@@ -268,13 +286,13 @@ mod tests {
         let values = vec![1, 2, 3, 4, 5];
         let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
 
-        assert_eq!(seg_tree.query(0, 5), 15);
+        assert_eq!(seg_tree.query(..), 15);
 
         // Update index 2 (value 3) to 10
         seg_tree.update(2, 10);
-        assert_eq!(seg_tree.query(0, 5), 1 + 2 + 10 + 4 + 5);
-        assert_eq!(seg_tree.query(2, 3), 10);
-        assert_eq!(seg_tree.query(0, 2), 3);
+        assert_eq!(seg_tree.query(..), 1 + 2 + 10 + 4 + 5);
+        assert_eq!(seg_tree.query(2..3), 10);
+        assert_eq!(seg_tree.query(..2), 3);
     }
 
     #[test]
@@ -282,25 +300,26 @@ mod tests {
         let values = vec![1, 10, 3, 8, 5];
         let mut seg_tree = SegTree::<MaxSpec>::from_vec(&values);
 
-        assert_eq!(seg_tree.query(0, 5), 10);
-        assert_eq!(seg_tree.query(2, 4), 8); // max(3, 8)
+        assert_eq!(seg_tree.query(..), 10);
+        assert_eq!(seg_tree.query(2..4), 8); // max(3, 8)
 
         seg_tree.update(1, 2); // update 10 to 2
-        assert_eq!(seg_tree.query(0, 5), 8); // max(1, 2, 3, 8, 5)
+        assert_eq!(seg_tree.query(..), 8); // max(1, 2, 3, 8, 5)
     }
 
     #[test]
     #[should_panic]
+    #[allow(clippy::reversed_empty_ranges)]
     fn test_panic_query_invalid_range() {
         let seg_tree = SegTree::<SumSpec>::new(10);
-        seg_tree.query(5, 4);
+        seg_tree.query(5..4);
     }
 
     #[test]
     #[should_panic]
     fn test_panic_query_out_of_bounds() {
         let seg_tree = SegTree::<SumSpec>::new(10);
-        seg_tree.query(0, 11);
+        seg_tree.query(..11);
     }
 
     #[test]

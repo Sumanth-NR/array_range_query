@@ -45,24 +45,24 @@ The implementation is deliberately generic and configurable via the
 ## Example (Range Add + Range Sum)
 
 
-```rust
-# use array_range_query::{LazySegTree, LazySegTreeSpec};
-# struct RangeAddSum;
-# impl LazySegTreeSpec for RangeAddSum {
-#     type T = i64;
-#     type U = i64;
-#     const ID: Self::T = 0;
-#     fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T { d1 + d2 }
-#     fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U { u1 + u2 }
-#     fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
-#         d + (u * size as i64)
-#     }
-# }
-let mut tree = LazySegTree::<RangeAddSum>::from_vec(&vec![1,2,3,4,5]);
-assert_eq!(tree.query(1, 4), 9); // 2 + 3 + 4
-tree.update(1, 4, 10); // add 10 to indices 1..4
-assert_eq!(tree.query(0, 5), 45);
-```
+/// ```rust
+/// # use array_range_query::{LazySegTree, LazySegTreeSpec};
+/// # struct RangeAddSum;
+/// # impl LazySegTreeSpec for RangeAddSum {
+/// #     type T = i64;
+/// #     type U = i64;
+/// #     const ID: Self::T = 0;
+/// #     fn op_on_data(d1: &Self::T, d2: &Self::T) -> Self::T { d1 + d2 }
+/// #     fn op_on_update(u1: &Self::U, u2: &Self::U) -> Self::U { u1 + u2 }
+/// #     fn op_update_on_data(u: &Self::U, d: &Self::T, size: usize) -> Self::T {
+/// #         d + (u * size as i64)
+/// #     }
+/// # }
+/// let mut tree = LazySegTree::<RangeAddSum>::from_vec(&vec![1,2,3,4,5]);
+/// assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
+/// tree.update(1..4, 10); // add 10 to indices 1..4
+/// assert_eq!(tree.query(..), 45);
+/// ```
 
 ## Panics and safety
 
@@ -78,6 +78,7 @@ assert_eq!(tree.query(0, 5), 45);
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::marker::PhantomData;
+use std::ops::{Bound, RangeBounds};
 
 /// Specification trait for `LazySegTree`.
 ///
@@ -180,11 +181,13 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         }
     }
 
-    /// Query the half-open interval `[left, right)`.
+    /// Query the range specified by `range`.
     ///
-    /// Returns `Spec::ID` for empty ranges (`left == right`).
-    /// Panics if the range is invalid (see `validate_range`).
-    pub fn query(&self, left: usize, right: usize) -> Spec::T {
+    /// The range can be any type that implements `RangeBounds<usize>`.
+    /// Returns `Spec::ID` for empty ranges.
+    /// Panics if the range is invalid.
+    pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
+        let (left, right) = self.parse_range(range);
         self.validate_range(left, right);
         if left == right {
             return Spec::ID;
@@ -192,10 +195,12 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         self.query_internal(1, 0, left, right, self.max_size)
     }
 
-    /// Apply `value` lazily to the half-open interval `[left, right)`.
+    /// Apply `value` lazily to the range specified by `range`.
     ///
+    /// The range can be any type that implements `RangeBounds<usize>`.
     /// Requires `&mut self`. Panics if range is invalid.
-    pub fn update(&mut self, left: usize, right: usize, value: Spec::U) {
+    pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
+        let (left, right) = self.parse_range(range);
         self.validate_range(left, right);
         if left == right {
             return;
@@ -338,6 +343,20 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
             self.size
         );
     }
+
+    fn parse_range<R: RangeBounds<usize>>(&self, range: R) -> (usize, usize) {
+        let start = match range.start_bound() {
+            Bound::Included(&s) => s,
+            Bound::Excluded(&s) => s + 1,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(&e) => e + 1,
+            Bound::Excluded(&e) => e,
+            Bound::Unbounded => self.size,
+        };
+        (start, end)
+    }
 }
 
 /// Helper to pretty-print optional values arranged as a binary tree.
@@ -437,36 +456,37 @@ mod tests {
     #[test]
     fn test_from_vec_and_initial_query() {
         let tree = LazySegTree::<RangeAddSum>::from_vec(&[1, 2, 3, 4, 5]);
-        assert_eq!(tree.query(0, 5), 15);
-        assert_eq!(tree.query(2, 4), 7);
+        assert_eq!(tree.query(..), 15);
+        assert_eq!(tree.query(2..4), 7);
     }
 
     #[test]
     fn test_update_and_query() {
         let mut tree = LazySegTree::<RangeAddSum>::new(7);
-        tree.update(0, 5, 10); // Add 10 to first 5 elements
-        assert_eq!(tree.query(0, 7), 50);
-        tree.update(2, 7, -5); // Subtract 5 from elements 2,3,4,5,6
-        assert_eq!(tree.query(0, 2), 20); // 10 + 10
-        assert_eq!(tree.query(2, 5), 15); // (10-5) + (10-5) + (10-5)
-        assert_eq!(tree.query(0, 7), 25); // 20 + 15 + (-5 * 2)
+        tree.update(..5, 10); // Add 10 to first 5 elements
+        assert_eq!(tree.query(..), 50);
+        tree.update(2.., -5); // Subtract 5 from elements 2,3,4,5,6
+        assert_eq!(tree.query(..2), 20); // 10 + 10
+        assert_eq!(tree.query(2..5), 15); // (10-5) + (10-5) + (10-5)
+        assert_eq!(tree.query(..), 25); // 20 + 15 + (-5 * 2)
     }
 
     #[test]
     fn test_overlapping_updates() {
         let mut tree = LazySegTree::<RangeAddSum>::new(10);
-        tree.update(0, 6, 5);
-        assert_eq!(tree.query(0, 10), 30);
-        tree.update(4, 8, 10);
+        tree.update(..6, 5);
+        assert_eq!(tree.query(..), 30);
+        tree.update(4..8, 10);
         let expected = (5 * 4) + ((5 + 10) * 2) + (10 * 2);
-        assert_eq!(tree.query(0, 10), expected);
-        assert_eq!(tree.query(4, 6), 30);
+        assert_eq!(tree.query(..), expected);
+        assert_eq!(tree.query(4..6), 30);
     }
 
     #[test]
     #[should_panic]
+    #[allow(clippy::reversed_empty_ranges)]
     fn test_panic_invalid_range() {
         let tree = LazySegTree::<RangeAddSum>::new(10);
-        tree.query(5, 4);
+        tree.query(5..4);
     }
 }

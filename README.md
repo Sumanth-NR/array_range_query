@@ -51,14 +51,14 @@ let values = vec![1, 2, 3, 4, 5];
 let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
 
 // Query sum of range [1, 4) -> elements at indices 1, 2, 3
-assert_eq!(seg_tree.query(1, 4), 9); // 2 + 3 + 4
+assert_eq!(seg_tree.query(1..4), 9); // 2 + 3 + 4
 
 // Update element at index 2 to 10
 seg_tree.update(2, 10);
 
 // Query again - sum should reflect the change
-assert_eq!(seg_tree.query(1, 4), 16); // 2 + 10 + 4
-assert_eq!(seg_tree.query(0, 5), 22); // 1 + 2 + 10 + 4 + 5
+assert_eq!(seg_tree.query(1..4), 16); // 2 + 10 + 4
+assert_eq!(seg_tree.query(..), 22); // 1 + 2 + 10 + 4 + 5
 ```
 
 ### Using Helper Types
@@ -72,15 +72,15 @@ let values = vec![3, 1, 4, 1, 5, 9, 2, 6];
 
 // Range sum queries
 let mut sum_tree = SegTreeSum::<i32>::from_vec(&values);
-assert_eq!(sum_tree.query(2, 6), 19); // 4 + 1 + 5 + 9
+assert_eq!(sum_tree.query(2..6), 19); // 4 + 1 + 5 + 9
 
 // Range minimum queries
 let mut min_tree = SegTreeMin::<i32>::from_vec(&values);
-assert_eq!(min_tree.query(2, 6), 1); // min(4, 1, 5, 9)
+assert_eq!(min_tree.query(2..6), 1); // min(4, 1, 5, 9)
 
 // Range maximum queries
 let mut max_tree = SegTreeMax::<i32>::from_vec(&values);
-assert_eq!(max_tree.query(2, 6), 9); // max(4, 1, 5, 9)
+assert_eq!(max_tree.query(2..6), 9); // max(4, 1, 5, 9)
 ```
 
 ### Lazy Segment Tree for Range Updates
@@ -116,16 +116,16 @@ let values = vec![1, 2, 3, 4, 5];
 let mut lazy_tree = LazySegTree::<RangeAddSum>::from_vec(&values);
 
 // Initial sum of range [1, 4)
-assert_eq!(lazy_tree.query(1, 4), 9); // 2 + 3 + 4
+assert_eq!(lazy_tree.query(1..4), 9); // 2 + 3 + 4
 
 // Add 10 to all elements in range [1, 4)
-lazy_tree.update(1, 4, 10);
+lazy_tree.update(1..4, 10);
 
 // Query the updated range
-assert_eq!(lazy_tree.query(1, 4), 39); // (2+10) + (3+10) + (4+10)
+assert_eq!(lazy_tree.query(1..4), 39); // (2+10) + (3+10) + (4+10)
 
 // Total sum should be updated too
-assert_eq!(lazy_tree.query(0, 5), 45); // 1 + 12 + 13 + 14 + 5
+assert_eq!(lazy_tree.query(..), 45); // 1 + 12 + 13 + 14 + 5
 ```
 
 ### Using Lazy Segment Tree Helpers
@@ -136,21 +136,21 @@ use array_range_query::{LazySegTreeAddSum, LazySegTreeAddMin, LazySegTreeReplace
  // Range add + range sum
 let values = vec![1, 2, 3, 4, 5];
 let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
-tree.update(1, 3, 5);
-assert_eq!(tree.query(0, 2), 8);  // 1 + (2+5)
-assert_eq!(tree.query(1, 4), 19); // 7 + 8 + 4 = 19
+tree.update(1..3, 5);
+assert_eq!(tree.query(0..2), 8);  // 1 + (2+5)
+assert_eq!(tree.query(1..4), 19); // 7 + 8 + 4 = 19
 
 // Range add + range min
 let values = vec![5, 2, 8, 1, 9, 3];
 let mut min_tree = LazySegTreeAddMin::<i32>::from_vec(&values);
-min_tree.update(1, 4, 2);
-assert_eq!(min_tree.query(0, 6), 3); // min(5, 4, 10, 3, 9, 3)
+min_tree.update(1..4, 2);
+assert_eq!(min_tree.query(..), 3); // min(5, 4, 10, 3, 9, 3)
 
 // Range assignment (replace) + range sum
 let values = vec![1, 2, 3, 4, 5];
 let mut replace_tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
-replace_tree.update(1, 4, 10); // Replace [1, 4) with 10
-assert_eq!(replace_tree.query(0, 5), 36); // 1 + 10 + 10 + 10 + 5
+replace_tree.update(1..4, 10); // Replace [1, 4) with 10
+assert_eq!(replace_tree.query(..), 36); // 1 + 10 + 10 + 10 + 5
 ```
 
 ## Advanced Usage
@@ -189,7 +189,7 @@ let points = vec![
 ];
 
 let tree = SegTree::<PointMaxSpec>::from_vec(&points);
-let max_point = tree.query(0, 3);
+let max_point = tree.query(..);
 assert_eq!(max_point.x, 3);
 assert_eq!(max_point.y, 4);
 ```

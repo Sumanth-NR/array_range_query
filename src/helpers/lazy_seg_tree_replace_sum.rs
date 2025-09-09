@@ -43,11 +43,11 @@ where
 /// let values = vec![1, 2, 3, 4, 5];
 /// let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 ///
-/// assert_eq!(tree.query(0, 5), 15); // Sum of all elements
+/// assert_eq!(tree.query(..), 15); // Sum of all elements
 ///
 /// // Replace range [1, 4) with 10
-/// tree.update(1, 4, 10);
-/// assert_eq!(tree.query(0, 5), 1 + 10 + 10 + 10 + 5);
+/// tree.update(1..4, 10);
+/// assert_eq!(tree.query(..), 1 + 10 + 10 + 10 + 5);
 /// ```
 pub type LazySegTreeReplaceSum<T> = LazySegTree<LazySegTreeReplaceSumSpec<T>>;
 
@@ -60,11 +60,11 @@ mod tests {
         let values = vec![1, 2, 3, 4, 5];
         let tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 
-        assert_eq!(tree.query(0, 5), 15);
-        assert_eq!(tree.query(1, 4), 9);
-        assert_eq!(tree.query(0, 1), 1);
-        assert_eq!(tree.query(4, 5), 5);
-        assert_eq!(tree.query(2, 2), 0);
+        assert_eq!(tree.query(..), 15);
+        assert_eq!(tree.query(1..4), 9);
+        assert_eq!(tree.query(..1), 1);
+        assert_eq!(tree.query(4..5), 5);
+        assert_eq!(tree.query(2..2), 0);
     }
 
     #[test]
@@ -73,19 +73,19 @@ mod tests {
         let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 
         // Replace [1, 4) with 5
-        tree.update(1, 4, 5);
-        assert_eq!(tree.query(0, 5), 10 + 5 + 5 + 5 + 50);
-        assert_eq!(tree.query(1, 4), 15);
+        tree.update(1..4, 5);
+        assert_eq!(tree.query(..), 10 + 5 + 5 + 5 + 50);
+        assert_eq!(tree.query(1..4), 15);
 
         // Replace [0, 3) with 7
-        tree.update(0, 3, 7);
-        assert_eq!(tree.query(0, 3), 7 + 7 + 7);
-        assert_eq!(tree.query(0, 5), 7 + 7 + 7 + 5 + 50);
+        tree.update(..3, 7);
+        assert_eq!(tree.query(..3), 7 + 7 + 7);
+        assert_eq!(tree.query(..), 7 + 7 + 7 + 5 + 50);
 
         // Replace [2, 5) with 1
-        tree.update(2, 5, 1);
-        assert_eq!(tree.query(0, 5), 7 + 7 + 1 + 1 + 1);
-        assert_eq!(tree.query(2, 5), 1 + 1 + 1);
+        tree.update(2..5, 1);
+        assert_eq!(tree.query(..), 7 + 7 + 1 + 1 + 1);
+        assert_eq!(tree.query(2..5), 1 + 1 + 1);
     }
 
     #[test]
@@ -94,36 +94,36 @@ mod tests {
         let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 
         // Replace [0, 3) with 2
-        tree.update(0, 3, 2);
-        assert_eq!(tree.query(0, 5), 2 + 2 + 2 + 4 + 5);
+        tree.update(..3, 2);
+        assert_eq!(tree.query(..), 2 + 2 + 2 + 4 + 5);
 
         // Replace [2, 5) with 7
-        tree.update(2, 5, 7);
-        assert_eq!(tree.query(0, 5), 2 + 2 + 7 + 7 + 7);
+        tree.update(2..5, 7);
+        assert_eq!(tree.query(..), 2 + 2 + 7 + 7 + 7);
 
         // Replace [1, 4) with 1
-        tree.update(1, 4, 1);
-        assert_eq!(tree.query(0, 5), 2 + 1 + 1 + 1 + 7);
+        tree.update(1..4, 1);
+        assert_eq!(tree.query(..), 2 + 1 + 1 + 1 + 7);
 
         // Replace [0, 5) with 9
-        tree.update(0, 5, 9);
-        assert_eq!(tree.query(0, 5), 45);
+        tree.update(..5, 9);
+        assert_eq!(tree.query(..), 45);
     }
 
     #[test]
     fn test_single_element_and_empty_range() {
         let single = vec![42];
         let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&single);
-        assert_eq!(tree.query(0, 1), 42);
-        tree.update(0, 1, 8);
-        assert_eq!(tree.query(0, 1), 8);
+        assert_eq!(tree.query(..), 42);
+        tree.update(..1, 8);
+        assert_eq!(tree.query(..), 8);
 
         // Empty range update should do nothing
         let values = vec![1, 2, 3, 4, 5];
         let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
-        let original_sum = tree.query(0, 5);
-        tree.update(2, 2, 100);
-        assert_eq!(tree.query(0, 5), original_sum);
+        let original_sum = tree.query(..);
+        tree.update(2..2, 100);
+        assert_eq!(tree.query(..), original_sum);
     }
 
     #[test]
@@ -133,16 +133,16 @@ mod tests {
         let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
 
         // Replace first half with 10
-        tree.update(0, size / 2, 10);
-        assert_eq!(tree.query(0, size / 2), (size as i32 / 2) * 10);
+        tree.update(..size / 2, 10);
+        assert_eq!(tree.query(..size / 2), (size as i32 / 2) * 10);
 
         // Replace second half with 20
-        tree.update(size / 2, size, 20);
-        assert_eq!(tree.query(size / 2, size), (size as i32 / 2) * 20);
+        tree.update(size / 2.., 20);
+        assert_eq!(tree.query(size / 2..), (size as i32 / 2) * 20);
 
         // Replace all with 5
-        tree.update(0, size, 5);
-        assert_eq!(tree.query(0, size), size as i32 * 5);
+        tree.update(..size, 5);
+        assert_eq!(tree.query(..), size as i32 * 5);
     }
 
     #[test]
@@ -150,23 +150,23 @@ mod tests {
         let mut tree = LazySegTreeReplaceSum::<i32>::new(5);
 
         // All elements should be zero initially
-        assert_eq!(tree.query(0, 5), 0);
+        assert_eq!(tree.query(..), 0);
 
         // Replace [1, 4) with 10
-        tree.update(1, 4, 10);
-        assert_eq!(tree.query(0, 5), 30);
-        assert_eq!(tree.query(1, 4), 30);
+        tree.update(1..4, 10);
+        assert_eq!(tree.query(..), 30);
+        assert_eq!(tree.query(1..4), 30);
 
         // Replace all with 2
-        tree.update(0, 5, 2);
-        assert_eq!(tree.query(0, 5), 10);
+        tree.update(..5, 2);
+        assert_eq!(tree.query(..), 10);
     }
 
     #[test]
     fn test_noop_update_none() {
         let tree = LazySegTreeReplaceSum::<i32>::from_vec(&[1, 2, 3, 4, 5]);
-        let original = tree.query(0, 5);
+        let original = tree.query(..);
         // No-op update is not possible with non-Option update type, so just check original value
-        assert_eq!(tree.query(0, 5), original);
+        assert_eq!(tree.query(..), original);
     }
 }
