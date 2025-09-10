@@ -67,7 +67,7 @@ impl LazySegTreeSpec for RangeAddSum {
     }
 }
 
-let mut tree = LazySegTree::<RangeAddSum>::from_vec(&vec![1,2,3,4,5]);
+let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1,2,3,4,5]);
 assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
 tree.update(1..4, 10); // add 10 to indices 1..4
 assert_eq!(tree.query(..), 45);
@@ -85,10 +85,11 @@ assert_eq!(tree.query(..), 45);
 */
 
 use crate::utils;
-use std::cell::RefCell;
-use std::fmt::Display;
-use std::marker::PhantomData;
-use std::ops::RangeBounds;
+use core::marker::PhantomData;
+use core::ops::RangeBounds;
+
+use core::cell::RefCell;
+use core::fmt::Display;
 
 /// Specification trait for `LazySegTree`.
 ///
@@ -210,10 +211,10 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(&values);
+    /// let tree = LazySegTree::<RangeAddSum>::from_slice(&values);
     /// assert_eq!(tree.query(..), 15); // Sum of all elements
     /// ```
-    pub fn from_vec(values: &[Spec::T]) -> Self {
+    pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
         let max_size = size.next_power_of_two();
         let mut data = vec![Spec::ID; max_size * 2];
@@ -221,6 +222,56 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         // Copy leaves and build internal nodes bottom-up
         if size > 0 {
             data[max_size..(max_size + size)].clone_from_slice(values);
+            for i in (1..max_size).rev() {
+                let mut v = data[i * 2].clone();
+                Spec::op_on_data(&mut v, &data[i * 2 + 1]);
+                data[i] = v;
+            }
+        }
+
+        Self {
+            size,
+            max_size,
+            data: RefCell::new(data),
+            tags: RefCell::new(vec![None; max_size * 2]),
+            _spec: PhantomData,
+        }
+    }
+
+    /// Creates a new `LazySegTree` from a vector of initial values.
+    ///
+    /// The tree is built in O(n) time using a bottom-up approach, which is more
+    /// efficient than creating an empty tree and updating each element individually.
+    /// This is the recommended way to initialize a segment tree with known values.
+    ///
+    /// # Time Complexity
+    /// O(n) where n is the length of `values`.
+    ///
+    /// # Examples
+    /// ```
+    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
+    /// # struct RangeAddSum;
+    /// # impl LazySegTreeSpec for RangeAddSum {
+    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
+    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
+    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
+    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
+    /// # }
+    /// let values = vec![1, 2, 3, 4, 5];
+    /// let tree = LazySegTree::<RangeAddSum>::from_vec(values);
+    /// assert_eq!(tree.query(..), 15); // Sum of all elements
+    /// ```
+    pub fn from_vec(values: Vec<Spec::T>) -> Self {
+        let size = values.len();
+        let max_size = size.next_power_of_two();
+        let mut data = vec![Spec::ID; max_size * 2];
+
+        // Move owned values directly into the leaf slots to avoid cloning
+        if size > 0 {
+            for (i, v) in values.into_iter().enumerate() {
+                data[max_size + i] = v;
+            }
+            // Build internal nodes bottom-up
             for i in (1..max_size).rev() {
                 let mut v = data[i * 2].clone();
                 Spec::op_on_data(&mut v, &data[i * 2 + 1]);
@@ -261,7 +312,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(&[1, 2, 3, 4, 5]);
+    /// let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
     /// assert_eq!(tree.query(1..4), 9);  // Sum of elements [2, 3, 4]
     /// assert_eq!(tree.query(..), 15);   // Sum of all elements
     /// ```
@@ -297,7 +348,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
-    /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(&[1, 2, 3, 4, 5]);
+    /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
     /// tree.update(1..4, 10); // Add 10 to elements at indices 1, 2, 3
     /// assert_eq!(tree.query(..), 45); // 1 + 12 + 13 + 14 + 5
     /// ```
@@ -557,21 +608,90 @@ mod tests {
     }
 
     #[test]
-    fn test_from_vec_and_initial_query() {
-        let tree = LazySegTree::<RangeAddSum>::from_vec(&[1, 2, 3, 4, 5]);
-        assert_eq!(tree.query(..), 15);
-        assert_eq!(tree.query(2..4), 7);
+    fn constructors() {
+        // `new` should create an identity-filled tree
+        let tree = LazySegTree::<RangeAddSum>::new(8);
+        assert_eq!(tree.query(..), 0);
+
+        // `from_slice` should build from a slice
+        let arr = [1i64, 2, 3, 4, 5, 6, 7, 8];
+        let tree_slice = LazySegTree::<RangeAddSum>::from_slice(&arr);
+        assert_eq!(tree_slice.query(..), 36);
+        assert_eq!(tree_slice.query(3..6), 4 + 5 + 6);
+
+        // `from_vec` should consume an owned vector
+        let tree_vec = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3]);
+        assert_eq!(tree_vec.query(..), 6);
+        assert_eq!(tree_vec.query(1..2), 2);
     }
 
     #[test]
-    fn test_update_and_query() {
-        let mut tree = LazySegTree::<RangeAddSum>::new(7);
-        tree.update(..5, 10); // Add 10 to first 5 elements
-        assert_eq!(tree.query(..), 50);
-        tree.update(2.., -5); // Subtract 5 from elements 2,3,4,5,6
-        assert_eq!(tree.query(..2), 20); // 10 + 10
-        assert_eq!(tree.query(2..5), 15); // (10-5) + (10-5) + (10-5)
-        assert_eq!(tree.query(..), 25); // 20 + 15 + (-5 * 2)
+    fn querying() {
+        let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3, 4, 5, 6, 7, 8]);
+
+        // full range
+        assert_eq!(tree.query(..), 36);
+
+        // single elements and small ranges
+        assert_eq!(tree.query(0..1), 1);
+        assert_eq!(tree.query(7..8), 8);
+        assert_eq!(tree.query(2..5), 3 + 4 + 5);
+
+        // prefix / suffix
+        assert_eq!(tree.query(..3), 1 + 2 + 3);
+        assert_eq!(tree.query(3..), 4 + 5 + 6 + 7 + 8);
+
+        // inclusive ranges and empty range
+        assert_eq!(tree.query(..=6), 1 + 2 + 3 + 4 + 5 + 6 + 7);
+        assert_eq!(tree.query(3..=5), 4 + 5 + 6);
+        assert_eq!(tree.query(4..4), 0);
+    }
+
+    #[test]
+    fn updating() {
+        let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3, 4, 5]);
+
+        // Range update: add 10 to indices [1,4)
+        tree.update(1..4, 10);
+        assert_eq!(tree.query(1..4), (2 + 10) + (3 + 10) + (4 + 10));
+        assert_eq!(tree.query(..), 1 + (2 + 10) + (3 + 10) + (4 + 10) + 5);
+
+        // Point-like update via single-element range
+        tree.update(2..3, -3); // modify index 2
+        assert_eq!(tree.query(2..3), (3 + 10) - 3);
+
+        // Empty-range update should be a no-op
+        let before = tree.query(..);
+        tree.update(2..2, 999);
+        assert_eq!(tree.query(..), before);
+    }
+
+    #[test]
+    fn combination_overlapping_updates() {
+        let mut tree = LazySegTree::<RangeAddSum>::from_vec((1..=10).collect::<Vec<_>>());
+
+        // Apply several overlapping updates
+        tree.update(..6, 5); // add 5 to indices 0..6
+        tree.update(4..8, 10); // add 10 to indices 4..8
+        tree.update(2..5, -2); // add -2 to indices 2..5
+
+        // Build expected array by applying same updates
+        let mut expected: Vec<i64> = (1..=10).collect();
+        // Add 5 to first 6 elements
+        expected.iter_mut().take(6).for_each(|v| *v += 5);
+        // Add 10 to indices 4..8 -> skip first 4, take next 4
+        expected.iter_mut().skip(4).take(4).for_each(|v| *v += 10);
+        // Add -2 to indices 2..5 -> skip first 2, take next 3
+        expected.iter_mut().skip(2).take(3).for_each(|v| *v += -2);
+
+        // Verify totals and several subranges
+        let total_expected: i64 = expected.iter().sum();
+        assert_eq!(tree.query(..), total_expected);
+
+        // A few targeted queries
+        assert_eq!(tree.query(0..3), expected[0] + expected[1] + expected[2]);
+        assert_eq!(tree.query(4..6), expected[4] + expected[5]);
+        assert_eq!(tree.query(7..10), expected[7] + expected[8] + expected[9]);
     }
 
     #[test]

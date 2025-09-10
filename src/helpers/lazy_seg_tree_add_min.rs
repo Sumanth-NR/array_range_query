@@ -43,7 +43,7 @@ where
 /// use array_range_query::LazySegTreeAddMin;
 ///
 /// let values = vec![5, 2, 8, 1, 9, 3];
-/// let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+/// let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 ///
 /// assert_eq!(tree.query(..), 1); // Minimum of all elements
 ///
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_add_min_basic_operations() {
         let values = vec![5, 2, 8, 1, 9, 3];
-        let tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 1); // min(5,2,8,1,9,3) = 1
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_add_min_range_updates() {
         let values = vec![10, 20, 30, 40, 50];
-        let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 10);
 
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn test_add_min_overlapping_updates() {
         let values = vec![1, 1, 1, 1, 1];
-        let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 1);
 
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_add_min_negative_updates() {
         let values = vec![10, 20, 30, 40, 50];
-        let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 10);
 
@@ -130,14 +130,14 @@ mod tests {
     fn test_add_min_edge_cases() {
         // Single element
         let single = vec![42];
-        let mut tree_single = LazySegTreeAddMin::<i32>::from_vec(&single);
+        let mut tree_single = LazySegTreeAddMin::<i32>::from_vec(single);
         assert_eq!(tree_single.query(..), 42);
         tree_single.update(..1, 8);
         assert_eq!(tree_single.query(..), 50);
 
         // Empty updates (no-op)
         let values = vec![1, 2, 3, 4, 5];
-        let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
         let original_min = tree.query(..);
         tree.update(2..2, 100); // Empty range update
         assert_eq!(tree.query(..), original_min); // Should be unchanged
@@ -147,7 +147,7 @@ mod tests {
     fn test_add_min_large_tree() {
         let size = 1000;
         let values = vec![1i32; size]; // All ones
-        let mut tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 1);
 

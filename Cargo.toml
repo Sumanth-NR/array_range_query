@@ -1,6 +1,6 @@
 [package]
 name = "array_range_query"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Sumanth NR <sumanth.nr.w@gmail.com>"]
 description = "Generic segment tree and lazy segment tree implementations for efficient range queries and range updates"

@@ -4,7 +4,7 @@
 //! types and provide a single source of truth for range validation logic.
 //!
 //! **Note:** This module is private to the crate and not part of the public API.
-use std::ops::{Bound, RangeBounds};
+use core::ops::{Bound, RangeBounds};
 
 /// Converts any `RangeBounds<usize>` into a concrete `(start, end)` tuple,
 /// using the provided `size` as the upper bound for unbounded ranges.

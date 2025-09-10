@@ -47,7 +47,7 @@ where
 /// use array_range_query::LazySegTreeAddSum;
 ///
 /// let values = vec![1i32, 2, 3, 4, 5];
-/// let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+/// let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 ///
 /// assert_eq!(tree.query(..), 15); // Sum of all elements
 ///
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn test_add_sum_basic_operations() {
         let values = vec![1i32, 2, 3, 4, 5];
-        let tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 15); // Sum of all: 1+2+3+4+5
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_add_sum_range_updates() {
         let values = vec![10i32, 20, 30, 40, 50];
-        let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 150);
 
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn test_add_sum_overlapping_updates() {
         let values = vec![1i32, 1, 1, 1, 1]; // All ones
-        let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 5);
 
@@ -117,7 +117,7 @@ mod tests {
     fn test_add_sum_with_different_types() {
         // Test with i64 type
         let values = vec![1i64, 2, 3, 4];
-        let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i64>::from_vec(values);
 
         assert_eq!(tree.query(..4), 10);
 
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_add_sum_with_i64() {
         let values = vec![1000000000i64, 2000000000, 3000000000];
-        let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i64>::from_vec(values);
 
         assert_eq!(tree.query(..3), 6000000000);
 
@@ -141,14 +141,14 @@ mod tests {
     fn test_add_sum_edge_cases() {
         // Single element
         let single = vec![42i32];
-        let mut tree_single = LazySegTreeAddSum::<i32>::from_vec(&single);
+        let mut tree_single = LazySegTreeAddSum::<i32>::from_vec(single);
         assert_eq!(tree_single.query(..), 42);
         tree_single.update(..1, 8);
         assert_eq!(tree_single.query(..), 50);
 
         // Empty updates (no-op)
         let values = vec![1i32, 2, 3, 4, 5];
-        let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
         let original_sum = tree.query(..);
         tree.update(2..2, 100); // Empty range update
         assert_eq!(tree.query(..), original_sum); // Should be unchanged
@@ -158,7 +158,7 @@ mod tests {
     fn test_add_sum_large_tree() {
         let size = 1000;
         let values = vec![1i32; size]; // All ones
-        let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), size as i32);
 
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_add_sum_zero_updates() {
         let values = vec![5i32, 10, 15, 20];
-        let mut tree = LazySegTreeAddSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         let original_sum = tree.query(..4);
 
