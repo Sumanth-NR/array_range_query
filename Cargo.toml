@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://github.com/Sumanth-NR/array_range_query"
 homepage = "https://github.com/Sumanth-NR/array_range_query"
 documentation = "https://docs.rs/array_range_query"
-keywords = ["segment-tree", "range-query", "data-structures", "algorithms", "tree"]
+keywords = ["segment-tree", "range-query", "data-structures", "algorithms"]
 categories = ["data-structures", "algorithms"]
 
 [dependencies]
@@ -17,10 +17,15 @@ min_max_traits = "0.1.0"
 num-traits = "0.2.19"
 
 [dev-dependencies]
+criterion = "0.4"
 
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
+
+[[bench]]
+name = "seg_tree"
+harness = false
 
 [package.metadata.docs.rs]
 all-features = true
