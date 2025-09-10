@@ -24,7 +24,8 @@ name = "basic_usage"
 path = "examples/basic_usage.rs"
 
 [[bench]]
-name = "seg_tree"
+name = "seg_tree_1000"
+path = "benches/seg_tree_1000.rs"
 harness = false
 
 [package.metadata.docs.rs]
