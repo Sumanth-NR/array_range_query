@@ -117,8 +117,7 @@ impl LazySegTreeSpec for RangeAddSum {
     }
 }
 
-let values = vec![1, 2, 3, 4, 5];
-let mut lazy_tree = LazySegTree::<RangeAddSum>::from_vec(&values);
+let mut lazy_tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
 
 // Initial sum of range [1, 4)
 assert_eq!(lazy_tree.query(1..4), 9); // 2 + 3 + 4
@@ -140,20 +139,20 @@ use array_range_query::{LazySegTreeAddSum, LazySegTreeAddMin, LazySegTreeReplace
 
  // Range add + range sum
 let values = vec![1, 2, 3, 4, 5];
-let mut tree = LazySegTreeAddSum::<i64>::from_vec(&values);
+let mut tree = LazySegTreeAddSum::<i64>::from_vec(values);
 tree.update(1..3, 5);
 assert_eq!(tree.query(0..2), 8);  // 1 + (2+5)
 assert_eq!(tree.query(1..4), 19); // 7 + 8 + 4 = 19
 
 // Range add + range min
 let values = vec![5, 2, 8, 1, 9, 3];
-let mut min_tree = LazySegTreeAddMin::<i32>::from_vec(&values);
+let mut min_tree = LazySegTreeAddMin::<i32>::from_vec(values);
 min_tree.update(1..4, 2);
 assert_eq!(min_tree.query(..), 3); // min(5, 4, 10, 3, 9, 3)
 
 // Range assignment (replace) + range sum
 let values = vec![1, 2, 3, 4, 5];
-let mut replace_tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+let mut replace_tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 replace_tree.update(1..4, 10); // Replace [1, 4) with 10
 assert_eq!(replace_tree.query(..), 36); // 1 + 10 + 10 + 10 + 5
 ```
@@ -202,7 +201,8 @@ assert_eq!(max_point.y, 4);
 ### SegTree
 
 - `SegTree::new(size: usize)` — Create empty tree with given size.
-- `SegTree::from_vec(values: &[T])` — Build tree from initial values.
+- `SegTree::from_slice(values: &[T])` — Build tree from slice of values.
+- `SegTree::from_vec(values: Vec<T>)` — Build tree from owned vector of values.
 - `query(&self, range: impl RangeBounds<usize>) -> T` — Query a range (half-open, e.g. `2..5`).
 - `update(&mut self, index: usize, value: T)` — Update a single element.
 
@@ -218,7 +218,8 @@ trait SegTreeSpec {
 ### LazySegTree
 
 - `LazySegTree::new(size: usize)` — Create empty lazy tree.
-- `LazySegTree::from_vec(values: &[T])` — Build from initial values.
+- `LazySegTree::from_slice(values: &[T])` — Build from slice of values.
+- `LazySegTree::from_vec(values: Vec<T>)` — Build from owned vector of values.
 - `query(&self, range: impl RangeBounds<usize>) -> T` — Query a range (half-open).
 - `update(&mut self, range: impl RangeBounds<usize>, value: U)` — Update a range.
 
@@ -250,7 +251,7 @@ trait LazySegTreeSpec {
 ## Performance
 
 All operations have the following time complexities:
-- **Construction**: O(n) for `from_vec`, O(n) for `new`
+- **Construction**: O(n) for `from_vec`/`from_slice`, O(n) for `new`
 - **Point update** (SegTree): O(log n)
 - **Range query**: O(log n)
 - **Range update** (LazySegTree): O(log n)

@@ -48,7 +48,7 @@ where
 /// use array_range_query::LazySegTreeAddMax;
 ///
 /// let values = vec![1, 3, 2, 5, 4];
-/// let mut tree = LazySegTreeAddMax::<i64>::from_vec(&values);
+/// let mut tree = LazySegTreeAddMax::<i64>::from_vec(values);
 ///
 /// assert_eq!(tree.query(..), 5); // Maximum of all elements
 ///
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_add_max_basic_operations() {
         let values = vec![1i32, 3, 2, 5, 4];
-        let tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 5); // Max of all: max(1,3,2,5,4) = 5
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn test_add_max_range_updates() {
         let values = vec![10i32, 20, 30, 40, 50];
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 50);
 
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn test_add_max_overlapping_updates() {
         let values = vec![1i32, 1, 1, 1, 1]; // All ones
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 1);
 
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn test_add_max_negative_updates() {
         let values = vec![10i32, 20, 30, 40, 50];
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 50);
 
@@ -140,14 +140,14 @@ mod tests {
     fn test_add_max_edge_cases() {
         // Single element
         let single = vec![42i32];
-        let mut tree_single = LazySegTreeAddMax::<i32>::from_vec(&single);
+        let mut tree_single = LazySegTreeAddMax::<i32>::from_vec(single);
         assert_eq!(tree_single.query(..), 42);
         tree_single.update(..1, 8);
         assert_eq!(tree_single.query(..), 50);
 
         // Empty updates (no-op)
         let values = vec![1i32, 2, 3, 4, 5];
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
         let original_max = tree.query(..);
         tree.update(2..2, 100); // Empty range update
         assert_eq!(tree.query(..), original_max); // Should be unchanged
@@ -157,7 +157,7 @@ mod tests {
     fn test_add_max_large_tree() {
         let size = 1000;
         let values: Vec<i64> = (1..=size as i64).collect(); // 1 to 1000
-        let mut tree = LazySegTreeAddMax::<i64>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i64>::from_vec(values);
 
         assert_eq!(tree.query(..), size as i64); // Maximum is 1000
 
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn test_add_max_zero_updates() {
         let values = vec![5i32, 10, 15, 20];
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         let original_max = tree.query(..4);
 
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_add_max_all_negative() {
         let values = vec![-10i32, -5, -15, -3, -8];
-        let mut tree = LazySegTreeAddMax::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), -3); // max(-10, -5, -15, -3, -8) = -3
 

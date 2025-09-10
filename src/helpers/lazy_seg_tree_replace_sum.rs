@@ -41,7 +41,7 @@ where
 /// use array_range_query::LazySegTreeReplaceSum;
 ///
 /// let values = vec![1, 2, 3, 4, 5];
-/// let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+/// let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 ///
 /// assert_eq!(tree.query(..), 15); // Sum of all elements
 ///
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_initial_and_point_queries() {
         let values = vec![1, 2, 3, 4, 5];
-        let tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+        let tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 15);
         assert_eq!(tree.query(1..4), 9);
@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn test_range_replace_and_sum() {
         let values = vec![10, 20, 30, 40, 50];
-        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 
         // Replace [1, 4) with 5
         tree.update(1..4, 5);
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn test_overlapping_and_nested_replaces() {
         let values = vec![1, 2, 3, 4, 5];
-        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 
         // Replace [0, 3) with 2
         tree.update(..3, 2);
@@ -113,14 +113,14 @@ mod tests {
     #[test]
     fn test_single_element_and_empty_range() {
         let single = vec![42];
-        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&single);
-        assert_eq!(tree.query(..), 42);
-        tree.update(..1, 8);
-        assert_eq!(tree.query(..), 8);
+        let mut tree_single = LazySegTreeReplaceSum::<i32>::from_vec(single);
+        assert_eq!(tree_single.query(..), 42);
+        tree_single.update(..1, 8);
+        assert_eq!(tree_single.query(..), 8);
 
         // Empty range update should do nothing
         let values = vec![1, 2, 3, 4, 5];
-        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
         let original_sum = tree.query(..);
         tree.update(2..2, 100);
         assert_eq!(tree.query(..), original_sum);
@@ -130,7 +130,7 @@ mod tests {
     fn test_large_tree_and_full_replace() {
         let size = 1000;
         let values = (1..=size as i32).collect::<Vec<_>>();
-        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(&values);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 
         // Replace first half with 10
         tree.update(..size / 2, 10);
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_noop_update_none() {
-        let tree = LazySegTreeReplaceSum::<i32>::from_vec(&[1, 2, 3, 4, 5]);
+        let tree = LazySegTreeReplaceSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
         let original = tree.query(..);
         // No-op update is not possible with non-Option update type, so just check original value
         assert_eq!(tree.query(..), original);
