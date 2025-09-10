@@ -677,15 +677,12 @@ mod tests {
 
         // Build expected array by applying same updates
         let mut expected: Vec<i64> = (1..=10).collect();
-        for i in 0..6 {
-            expected[i] += 5;
-        }
-        for i in 4..8 {
-            expected[i] += 10;
-        }
-        for i in 2..5 {
-            expected[i] += -2;
-        }
+        // Add 5 to first 6 elements
+        expected.iter_mut().take(6).for_each(|v| *v += 5);
+        // Add 10 to indices 4..8 -> skip first 4, take next 4
+        expected.iter_mut().skip(4).take(4).for_each(|v| *v += 10);
+        // Add -2 to indices 2..5 -> skip first 2, take next 3
+        expected.iter_mut().skip(2).take(3).for_each(|v| *v += -2);
 
         // Verify totals and several subranges
         let total_expected: i64 = expected.iter().sum();
