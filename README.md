@@ -53,7 +53,7 @@ impl SegTreeSpec for SumSpec {
 }
 
 let values = vec![1, 2, 3, 4, 5];
-let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
+let mut seg_tree = SegTree::<SumSpec>::from_vec(values);
 
 // Query sum of range [1, 4) -> elements at indices 1, 2, 3
 assert_eq!(seg_tree.query(1..4), 9); // 2 + 3 + 4
@@ -76,15 +76,15 @@ use array_range_query::{SegTreeSum, SegTreeMin, SegTreeMax};
 let values = vec![3, 1, 4, 1, 5, 9, 2, 6];
 
 // Range sum queries
-let mut sum_tree = SegTreeSum::<i32>::from_vec(&values);
+let mut sum_tree = SegTreeSum::<i32>::from_slice(&values);
 assert_eq!(sum_tree.query(2..6), 19); // 4 + 1 + 5 + 9
 
 // Range minimum queries
-let mut min_tree = SegTreeMin::<i32>::from_vec(&values);
+let mut min_tree = SegTreeMin::<i32>::from_slice(&values);
 assert_eq!(min_tree.query(2..6), 1); // min(4, 1, 5, 9)
 
 // Range maximum queries
-let mut max_tree = SegTreeMax::<i32>::from_vec(&values);
+let mut max_tree = SegTreeMax::<i32>::from_slice(&values);
 assert_eq!(max_tree.query(2..6), 9); // max(4, 1, 5, 9)
 ```
 
@@ -191,7 +191,7 @@ let points = vec![
     Point { x: 2, y: 4 },
 ];
 
-let tree = SegTree::<PointMaxSpec>::from_vec(&points);
+let tree = SegTree::<PointMaxSpec>::from_vec(points);
 let max_point = tree.query(..);
 assert_eq!(max_point.x, 3);
 assert_eq!(max_point.y, 4);

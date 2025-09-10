@@ -56,7 +56,7 @@
 //!
 //! // 3. Create the segment tree with your spec
 //! let values = vec![1, 2, 3, 4, 5];
-//! let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
+//! let mut seg_tree = SegTree::<SumSpec>::from_slice(&values);
 //!
 //! // Query the sum of the range [2, 5) -> sum of elements at indices 2, 3, and 4
 //! assert_eq!(seg_tree.query(2..5), 12);
@@ -68,8 +68,8 @@
 //! ```
 
 use crate::utils;
-use std::marker::PhantomData;
-use std::ops::RangeBounds;
+use core::marker::PhantomData;
+use core::ops::RangeBounds;
 
 /// Defines the monoid operation and element type for a `SegTree`.
 ///
@@ -176,7 +176,7 @@ pub trait SegTreeSpec {
 /// }
 ///
 /// let values = vec![3, 1, 4, 1, 5, 9, 2];
-/// let tree = SegTree::<MaxSpec>::from_vec(&values);
+/// let tree = SegTree::<MaxSpec>::from_vec(values);
 /// assert_eq!(tree.query(2..5), 5); // max(4, 1, 5) = 5
 /// ```
 pub struct SegTree<Spec: SegTreeSpec> {
@@ -247,11 +247,11 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
     /// }
     ///
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_vec(&values);
+    /// let tree = SegTree::<SumSpec>::from_slice(&values);
     /// assert_eq!(tree.query(..), 15); // Sum of all elements
     /// assert_eq!(tree.query(1..4), 9); // Sum of elements [2, 3, 4]
     /// ```
-    pub fn from_vec(values: &[Spec::T]) -> Self {
+    pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
         let max_size = size.next_power_of_two();
         let mut data = vec![Spec::ID; 2 * max_size];
@@ -274,11 +274,11 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         }
     }
 
-    /// Creates a new `SegTree` from a mutable vector of initial values.
+    /// Creates a new `SegTree` from a vector of initial values
     ///
-    /// Similar to `from_vec`, but takes a mutable reference to the input values.
-    /// This can be useful when you already have a mutable reference and want to
-    /// avoid additional borrowing constraints.
+    /// The tree is built in O(n) time using a bottom-up approach, which is more
+    /// efficient than creating an empty tree and updating each element individually.
+    /// This is the recommended way to initialize a segment tree with known values.
     ///
     /// # Time Complexity
     /// O(n) where n is the length of `values`.
@@ -294,17 +294,21 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
     ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
     /// }
     ///
-    /// let mut values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_mut_vec(&mut values);
-    /// assert_eq!(tree.query(..), 15);
+    /// let values = vec![1, 2, 3, 4, 5];
+    /// let tree = SegTree::<SumSpec>::from_vec(values);
+    /// assert_eq!(tree.query(..), 15); // Sum of all elements
+    /// assert_eq!(tree.query(1..4), 9); // Sum of elements [2, 3, 4]
     /// ```
-    pub fn from_mut_vec(values: &mut [Spec::T]) -> Self {
-        let size = values.len();
+    pub fn from_vec(vec: Vec<Spec::T>) -> Self {
+        let size = vec.len();
         let max_size = size.next_power_of_two();
+        // Allocate full tree storage (internal nodes + leaves)
         let mut data = vec![Spec::ID; 2 * max_size];
 
-        // Copy initial values to the leaf nodes
-        data[max_size..(max_size + size)].clone_from_slice(values);
+        // Move owned values directly into the leaf slots to avoid cloning
+        for (i, v) in vec.into_iter().enumerate() {
+            data[max_size + i] = v;
+        }
 
         // Build the tree by combining children up to the root
         for i in (1..max_size).rev() {
@@ -348,7 +352,7 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
     /// }
     ///
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_vec(&values);
+    /// let tree = SegTree::<SumSpec>::from_slice(&values);
     ///
     /// assert_eq!(tree.query(..), 15);      // All elements: 1+2+3+4+5
     /// assert_eq!(tree.query(1..4), 9);     // Elements [1,4): 2+3+4
@@ -418,7 +422,7 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
     /// }
     ///
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let mut tree = SegTree::<SumSpec>::from_vec(&values);
+    /// let mut tree = SegTree::<SumSpec>::from_vec(values);
     ///
     /// assert_eq!(tree.query(..), 15);  // Original sum
     ///
@@ -494,16 +498,36 @@ mod tests {
     }
 
     #[test]
-    fn test_from_vec_and_query_all() {
-        let values = vec![1, 2, 3, 4, 5];
-        let seg_tree = SegTree::<SumSpec>::from_vec(&values);
-        assert_eq!(seg_tree.query(..), 15);
+    fn test_from_slice_with_query() {
+        let values = vec![1, 2, 3];
+        let seg_tree = SegTree::<SumSpec>::from_slice(&values);
+
+        // Comprehensively test if querying works correctly for any range
+        assert_eq!(seg_tree.query(0..1), 1);
+        assert_eq!(seg_tree.query(1..2), 2);
+        assert_eq!(seg_tree.query(2..3), 3);
+        assert_eq!(seg_tree.query(..2), 3);
+        assert_eq!(seg_tree.query(1..), 5);
+        assert_eq!(seg_tree.query(..), 6);
+    }
+
+    #[test]
+    fn test_from_vec_with_query() {
+        let values = vec![1, 2, 3];
+        let seg_tree = SegTree::<SumSpec>::from_vec(values);
+
+        // Comprehensively test if querying works correctly for any range
+        assert_eq!(seg_tree.query(0..1), 1);
+        assert_eq!(seg_tree.query(1..2), 2);
+        assert_eq!(seg_tree.query(2..3), 3);
+        assert_eq!(seg_tree.query(..2), 3);
+        assert_eq!(seg_tree.query(1..), 5);
+        assert_eq!(seg_tree.query(..), 6);
     }
 
     #[test]
     fn test_query_sub_ranges() {
-        let values = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let seg_tree = SegTree::<SumSpec>::from_vec(&values);
+        let seg_tree = SegTree::<SumSpec>::from_vec(vec![1, 2, 3, 4, 5, 6, 7, 8]);
 
         assert_eq!(seg_tree.query(0..3), 6); // 1+2+3
         assert_eq!(seg_tree.query(2..5), 12); // 3+4+5
@@ -514,8 +538,7 @@ mod tests {
 
     #[test]
     fn test_query_empty_range() {
-        let values = vec![1, 2, 3];
-        let seg_tree = SegTree::<SumSpec>::from_vec(&values);
+        let seg_tree = SegTree::<SumSpec>::from_vec(vec![1, 2, 3]);
 
         assert_eq!(seg_tree.query(1..1), 0);
         assert_eq!(seg_tree.query(3..3), 0);
@@ -523,8 +546,7 @@ mod tests {
 
     #[test]
     fn test_update() {
-        let values = vec![1, 2, 3, 4, 5];
-        let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
+        let mut seg_tree = SegTree::<SumSpec>::from_vec(vec![1, 2, 3, 4, 5]);
 
         assert_eq!(seg_tree.query(..), 15);
 
@@ -536,36 +558,20 @@ mod tests {
     }
 
     #[test]
-    fn test_max_spec() {
-        let values = vec![1, 10, 3, 8, 5];
-        let mut seg_tree = SegTree::<MaxSpec>::from_vec(&values);
-
-        assert_eq!(seg_tree.query(..), 10);
-        assert_eq!(seg_tree.query(2..4), 8); // max(3, 8)
-
-        seg_tree.update(1, 2); // update 10 to 2
-        assert_eq!(seg_tree.query(..), 8); // max(1, 2, 3, 8, 5)
-    }
-
-    #[test]
-    fn test_from_mut_vec() {
-        let mut values = vec![5, 3, 8, 1, 9];
-        let seg_tree = SegTree::<MaxSpec>::from_mut_vec(&mut values);
-
-        assert_eq!(seg_tree.query(..), 9);
-        assert_eq!(seg_tree.query(1..4), 8); // max(3, 8, 1)
-    }
-
-    #[test]
     fn test_large_tree() {
-        let values: Vec<i64> = (1..=1000).collect();
-        let seg_tree = SegTree::<SumSpec>::from_vec(&values);
+        let mut seg_tree = SegTree::<SumSpec>::from_vec((1..=1000).collect());
 
         // Sum of 1 to 1000 = 1000 * 1001 / 2 = 500500
         assert_eq!(seg_tree.query(..), 500500);
 
         // Sum of first 500 numbers = 500 * 501 / 2 = 125250
         assert_eq!(seg_tree.query(..500), 125250);
+
+        // Update index 499 (value 500) to 1000
+        seg_tree.update(499, 1000);
+
+        assert_eq!(seg_tree.query(..), 500500 + 500);
+        assert_eq!(seg_tree.query(..500), 125250 + 500);
     }
 
     #[test]

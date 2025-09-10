@@ -50,9 +50,9 @@ fn custom_sum_example() {
     }
 
     let values = vec![1, 2, 3, 4, 5];
-    let mut seg_tree = SegTree::<SumSpec>::from_vec(&values);
-
     println!("Initial values: {:?}", values);
+
+    let mut seg_tree = SegTree::<SumSpec>::from_vec(values);
     println!("Sum of range [1, 4): {}", seg_tree.query(1..4)); // 2 + 3 + 4 = 9
     println!("Sum of entire array [0, 5): {}", seg_tree.query(..)); // 15
 
@@ -73,15 +73,15 @@ fn helper_types_example() {
     println!("Values: {:?}", values);
 
     // Sum operations
-    let mut sum_tree = SegTreeSum::<i32>::from_vec(&values);
+    let mut sum_tree = SegTreeSum::<i32>::from_slice(&values);
     println!("Range sum [2, 6): {}", sum_tree.query(2..6)); // 4 + 1 + 5 + 9 = 19
 
     // Min operations
-    let mut min_tree = SegTreeMin::<i32>::from_vec(&values);
+    let mut min_tree = SegTreeMin::<i32>::from_slice(&values);
     println!("Range min [2, 6): {}", min_tree.query(2..6)); // min(4, 1, 5, 9) = 1
 
     // Max operations
-    let mut max_tree = SegTreeMax::<i32>::from_vec(&values);
+    let mut max_tree = SegTreeMax::<i32>::from_slice(&values);
     println!("Range max [2, 6): {}", max_tree.query(2..6)); // max(4, 1, 5, 9) = 9
 
     // Demonstrate updates
@@ -115,9 +115,9 @@ fn custom_min_example() {
     }
 
     let values = vec![7, 3, 9, 1, 6, 2, 8, 4];
-    let seg_tree = SegTree::<MinSpec>::from_vec(&values);
-
     println!("Values: {:?}", values);
+
+    let seg_tree = SegTree::<MinSpec>::from_vec(values);
     println!("Min of entire array: {}", seg_tree.query(..)); // 1
     println!("Min of [2, 5): {}", seg_tree.query(2..5)); // min(9, 1, 6) = 1
     println!("Min of [0, 3): {}", seg_tree.query(..3)); // min(7, 3, 9) = 3

@@ -1,17 +1,43 @@
 //! Segment tree specialization for maximum operations.
 //!
 //! This module provides a convenient wrapper around the generic `SegTree`
-//! for maximum queries with automatic minimum identity element.
-
+//! for maximum queries with an automatically chosen identity element.
+//!
+//! We use the `min_max_traits::Min` trait to obtain the minimum constant
+//! value of the type since the rust num_traits does not contain a trait for
+//! obtaining the minimum constant value.
+//!
+//! Implementation:
+//! ```rust
+//! use array_range_query::{SegTree, SegTreeSpec};
+//!
+//! // Define the max monoid
+//! struct MaxSpec;
+//! impl SegTreeSpec for MaxSpec {
+//!     type T = i32;
+//!     const ID: Self::T = i32::MIN;
+//!     fn op(a: &mut Self::T, b: &Self::T) { *a = (*a).max(*b); }
+//! }
+//!
+//! // Example 1: consume a Vec (cheap, O(1) to take ownership)
+//! let values_owned = vec![5, 2, 8, 1, 9, 3];
+//! let mut tree_owned = SegTree::<MaxSpec>::from_vec(values_owned);
+//! assert_eq!(tree_owned.query(..), 9);
+//!
+//! // Example 2: build from a slice (clones elements)
+//! let values = vec![5, 2, 8, 1, 9, 3];
+//! let tree_from_slice = SegTree::<MaxSpec>::from_slice(&values);
+//! assert_eq!(tree_from_slice.query(1..4), 8);
+//! ```
 use crate::{SegTree, SegTreeSpec};
+use core::marker::PhantomData;
 use min_max_traits::Min as ConstLowerBound;
-use std::marker::PhantomData;
 
 /// Specification for segment trees that perform maximum operations.
 ///
-/// This spec works with any type `T` that implements ordering and has
-/// a minimum constant. The identity element is automatically set to the
-/// minimum value of the type.
+/// This spec works with any type `T` that implements ordering and provides a
+/// constant minimum value via the `min_max_traits::Min` trait. The identity
+/// element is set to the minimum constant of the type.
 pub struct SegTreeMaxSpec<T>(PhantomData<T>);
 
 impl<T> SegTreeSpec for SegTreeMaxSpec<T>
@@ -29,21 +55,6 @@ where
 }
 
 /// Convenience alias: a `SegTree` specialized to perform maximum queries over `T`.
-///
-/// # Examples
-///
-/// ```rust
-/// use array_range_query::SegTreeMax;
-///
-/// let values = vec![5, 2, 8, 1, 9, 3];
-/// let mut tree = SegTreeMax::<i32>::from_vec(&values);
-///
-/// assert_eq!(tree.query(..), 9); // Maximum of all elements
-/// assert_eq!(tree.query(1..4), 8); // Maximum of elements 2, 8, 1
-///
-/// tree.update(3, 15); // Change element at index 3 to 15
-/// assert_eq!(tree.query(..), 15); // Updated maximum
-/// ```
 pub type SegTreeMax<T> = SegTree<SegTreeMaxSpec<T>>;
 
 #[cfg(test)]
@@ -53,20 +64,21 @@ mod tests {
     #[test]
     fn test_max_basic_operations() {
         let values = vec![5, 2, 8, 1, 9, 3];
-        let tree = SegTreeMax::<i32>::from_vec(&values);
+        // Use `from_slice` when we want to keep `values` for later or avoid moving it.
+        let tree = SegTreeMax::<i32>::from_slice(&values);
 
         // Test initial queries
-        assert_eq!(tree.query(..), 9); // Max of all: max(5,2,8,1,9,3) = 9
-        assert_eq!(tree.query(1..4), 8); // Max of middle: max(2,8,1) = 8
+        assert_eq!(tree.query(..), 9); // Max of all: 9
+        assert_eq!(tree.query(1..4), 8); // Max of (2,8,1) = 8
         assert_eq!(tree.query(..1), 5); // Single element
         assert_eq!(tree.query(4..6), 9); // max(9, 3) = 9
-        assert_eq!(tree.query(2..2), i32::MIN); // Empty range returns MIN
+        assert_eq!(tree.query(2..2), i32::MIN); // Empty range returns ID (MIN)
     }
 
     #[test]
     fn test_max_updates() {
         let values = vec![10, 20, 30, 40, 50];
-        let mut tree = SegTreeMax::<i32>::from_vec(&values);
+        let mut tree = SegTreeMax::<i32>::from_slice(&values);
 
         assert_eq!(tree.query(..), 50);
 
@@ -87,12 +99,12 @@ mod tests {
     fn test_max_with_different_types() {
         // Test with i64
         let values_i64 = vec![1000000000_i64, 2000000000, 500000000];
-        let tree_i64 = SegTreeMax::<i64>::from_vec(&values_i64);
+        let tree_i64 = SegTreeMax::<i64>::from_slice(&values_i64);
         assert_eq!(tree_i64.query(..), 2000000000);
 
         // Test with u32
         let values_u32 = vec![15u32, 25, 45, 5];
-        let tree_u32 = SegTreeMax::<u32>::from_vec(&values_u32);
+        let tree_u32 = SegTreeMax::<u32>::from_slice(&values_u32);
         assert_eq!(tree_u32.query(..), 45);
         assert_eq!(tree_u32.query(1..3), 45);
     }
@@ -101,20 +113,20 @@ mod tests {
     fn test_max_edge_cases() {
         // Single element
         let single = vec![42];
-        let tree_single = SegTreeMax::<i32>::from_vec(&single);
+        let tree_single = SegTreeMax::<i32>::from_slice(&single);
         assert_eq!(tree_single.query(..), 42);
         assert_eq!(tree_single.query(..0), i32::MIN);
 
         // All same values
         let same = vec![7, 7, 7, 7, 7];
-        let tree_same = SegTreeMax::<i32>::from_vec(&same);
+        let tree_same = SegTreeMax::<i32>::from_slice(&same);
         assert_eq!(tree_same.query(..), 7);
         assert_eq!(tree_same.query(1..4), 7);
         assert_eq!(tree_same.query(2..3), 7);
 
         // Empty ranges in larger tree
         let values = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let tree = SegTreeMax::<i32>::from_vec(&values);
+        let tree = SegTreeMax::<i32>::from_slice(&values);
         assert_eq!(tree.query(3..3), i32::MIN); // Empty range
         assert_eq!(tree.query(..0), i32::MIN); // Empty range at start
         assert_eq!(tree.query(8..), i32::MIN); // Empty range at end
@@ -124,7 +136,7 @@ mod tests {
     fn test_max_large_tree() {
         let size: i32 = 1000;
         let values: Vec<i32> = (1..=size).collect();
-        let mut tree = SegTreeMax::<i32>::from_vec(&values);
+        let mut tree = SegTreeMax::<i32>::from_slice(&values);
 
         // Maximum of 1 to 1000 is 1000
         assert_eq!(tree.query(..), 1000);
@@ -145,7 +157,7 @@ mod tests {
     #[test]
     fn test_max_negative_values() {
         let values = vec![-5, -3, -1, 2, 4];
-        let mut tree = SegTreeMax::<i32>::from_vec(&values);
+        let mut tree = SegTreeMax::<i32>::from_slice(&values);
 
         assert_eq!(tree.query(..), 4); // max(-5, -3, -1, 2, 4) = 4
         assert_eq!(tree.query(..3), -1); // max(-5, -3, -1) = -1
@@ -178,7 +190,7 @@ mod tests {
     #[test]
     fn test_max_extremes() {
         let values = vec![i32::MIN, i32::MAX, 0, -1, 1];
-        let mut tree = SegTreeMax::<i32>::from_vec(&values);
+        let mut tree = SegTreeMax::<i32>::from_slice(&values);
 
         assert_eq!(tree.query(..), i32::MAX); // MAX is largest
         assert_eq!(tree.query(..1), i32::MIN); // Just MIN
