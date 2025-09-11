@@ -310,7 +310,9 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     type T = i64; type U = i64; const ID: Self::T = 0;
     /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
+    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+    /// #         *d += u * size as i64;
+    /// #     }
     /// # }
     /// let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
     /// assert_eq!(tree.query(1..4), 9);  // Sum of elements [2, 3, 4]
@@ -346,7 +348,9 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     type T = i64; type U = i64; const ID: Self::T = 0;
     /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
+    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+    /// #         *d += u * size as i64;
+    /// #     }
     /// # }
     /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
     /// tree.update(1..4, 10); // Add 10 to elements at indices 1, 2, 3
@@ -374,26 +378,6 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
             Spec::op_on_update(existing, new_tag);
         } else {
             *existing_tag = Some(new_tag.clone());
-        }
-    }
-
-    /// Push a pending tag at `index` down to the node's data and to its children.
-    ///
-    /// This version is used from `&self` query paths and uses `RefCell` borrows.
-    /// The `node_size` parameter represents the number of leaves covered by this node.
-    ///
-    /// # Panics
-    /// Panics if `RefCell` borrow rules are violated (e.g., conflicting borrows exist).
-    fn push(&self, index: usize, node_size: usize) {
-        let mut tags = self.tags.borrow_mut();
-        if let Some(tag) = tags[index].take() {
-            let mut data = self.data.borrow_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
-
-            if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
-            }
         }
     }
 
@@ -429,10 +413,15 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// Traverses the tree to find nodes that overlap with the query range [left, right)
     /// and combines their values.
     ///
-    /// # Parameters
+    /// ## Parameters
     /// - `index`: Current node index in the tree array
-    /// - `node_left`, `node_right`: Half-open interval [node_left, node_right) covered by this node
+    /// - `node_left`, `node_right`:
+    ///    Half-open interval [node_left, node_right) covered by this node
     /// - `left`, `right`: Query range [left, right)
+    ///
+    /// ## Important
+    /// - Function assumes that there is some intersection between
+    ///   the query range and the node's range.
     fn query_internal(
         &self,
         index: usize,
@@ -441,24 +430,36 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         right: usize,
         node_right: usize,
     ) -> Spec::T {
-        // No overlap between node range and query range
-        if node_right <= left || right <= node_left {
-            return Spec::ID;
+        // Ensure current node's pending tag (if any) is applied before reading
+        // This is done to ensure that the node's value is up-to-date before querying it.
+        {
+            let mut tags = self.tags.borrow_mut();
+            if let Some(tag) = tags[index].take() {
+                let mut data = self.data.borrow_mut();
+                Spec::op_update_on_data(&tag, &mut data[index], node_right - node_left);
+                if index < self.max_size {
+                    tags[index * 2] = Some(tag.clone());
+                    tags[index * 2 + 1] = Some(tag);
+                }
+            }
         }
 
-        // Ensure current node's pending tag (if any) is applied before reading
-        self.push(index, node_right - node_left);
-
         if left <= node_left && node_right <= right {
-            // Node is fully covered by the query range
+            // Node is fully covered by the query range (update ensured)
             return self.data.borrow()[index].clone();
         } else {
             // Partial overlap - combine results from children
             let mid = (node_left + node_right) / 2;
-            let mut left_result = self.query_internal(index * 2, node_left, left, right, mid);
-            let right_result = self.query_internal(index * 2 + 1, mid, left, right, node_right);
-            Spec::op_on_data(&mut left_result, &right_result);
-            left_result
+            if right <= mid {
+                return self.query_internal(index * 2, node_left, left, right, mid);
+            } else if left >= mid {
+                return self.query_internal(index * 2 + 1, mid, left, right, node_right);
+            } else {
+                let mut left_result = self.query_internal(index * 2, node_left, left, right, mid);
+                let right_result = self.query_internal(index * 2 + 1, mid, left, right, node_right);
+                Spec::op_on_data(&mut left_result, &right_result);
+                left_result
+            }
         }
     }
 
