@@ -1,4 +1,4 @@
-use core::cell::RefCell;
+// RNG captured mutably by closures; no RefCell needed
 use core::hint::black_box;
 use std::path::Path;
 
@@ -9,29 +9,7 @@ use array_range_query::SegTreeSum;
 /// Size used for the benchmarks.
 const SIZE: usize = 1000;
 
-/// A tiny deterministic linear congruential generator so we don't need external crates.
-/// Not cryptographically secure — only for reproducible pseudo-random inputs in benchmarks.
-#[derive(Clone)]
-struct Lcg(u64);
-
-impl Lcg {
-    fn new(seed: u64) -> Self {
-        Self(seed)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        // Parameters from Numerical Recipes (common LCG)
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        self.0
-    }
-
-    fn next_usize(&mut self, max: usize) -> usize {
-        (self.next_u64() as usize) % max
-    }
-}
+mod rng;
 
 fn bench_constructors(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
@@ -67,15 +45,14 @@ fn bench_range_query(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
     let tree = SegTreeSum::<i64>::from_slice(&values);
 
-    // Use a RefCell-wrapped RNG so the same RNG state is used across iterations.
-    let rng = RefCell::new(Lcg::new(0xC0FFEE));
+    // Use a plain mutable RNG so the same RNG state is used across iterations.
+    let mut rng = rng::Lcg::new(0xC0FFEE);
 
     c.bench_function("seg_tree_range_size_random_query_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let left = r.next_usize(SIZE);
-                let right = r.next_usize(SIZE);
+                let left = rng.next_usize(SIZE);
+                let right = rng.next_usize(SIZE);
                 if left <= right {
                     (left, right)
                 } else {
@@ -97,8 +74,7 @@ fn bench_range_query(c: &mut Criterion) {
     c.bench_function("seg_tree_range_size_750_query_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let left = r.next_usize(SIZE - window);
+                let left = rng.next_usize(SIZE - window);
                 let right = left + window;
                 (left, right)
             },
@@ -118,15 +94,14 @@ fn bench_point_update(c: &mut Criterion) {
     // Construct once (as requested) and perform updates on the same tree.
     let mut tree = SegTreeSum::<i64>::from_vec(values.clone());
 
-    let rng = RefCell::new(Lcg::new(0xFEED_FACE));
+    let mut rng = rng::Lcg::new(0xFEED_FACE);
 
     c.bench_function("seg_tree_point_update_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let idx = r.next_usize(SIZE);
+                let idx = rng.next_usize(SIZE);
                 // produce a pseudo-random i64 value (may be negative)
-                let val = (r.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
+                let val = (rng.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
                 (idx, val)
             },
             |(idx, val)| {

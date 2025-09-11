@@ -1,37 +1,13 @@
-use core::cell::RefCell;
 use core::hint::black_box;
 use std::path::Path;
 
-use criterion::{criterion_group, criterion_main, Criterion};
-
 use array_range_query::LazySegTreeAddSum;
+
+use criterion::{criterion_group, criterion_main, Criterion};
+mod rng;
 
 /// Size used for the benchmarks.
 const SIZE: usize = 1000;
-
-/// A tiny deterministic linear congruential generator so we don't need external crates.
-/// Not cryptographically secure — only for reproducible pseudo-random inputs in benchmarks.
-#[derive(Clone)]
-struct Lcg(u64);
-
-impl Lcg {
-    fn new(seed: u64) -> Self {
-        Self(seed)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        // Parameters from Numerical Recipes (common LCG)
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        self.0
-    }
-
-    fn next_usize(&mut self, max: usize) -> usize {
-        (self.next_u64() as usize) % max
-    }
-}
 
 fn bench_constructors(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
@@ -67,15 +43,14 @@ fn bench_range_query(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
     let tree = LazySegTreeAddSum::<i64>::from_vec(values);
 
-    // Use a RefCell-wrapped RNG so the same RNG state is used across iterations.
-    let rng = RefCell::new(Lcg::new(0xC0FFEE));
+    // Use a plain mutable RNG so the same RNG state is used across iterations.
+    let mut rng = rng::Lcg::new(0xC0FFEE);
 
     c.bench_function("lazy_seg_tree_range_size_random_query_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let num1 = r.next_usize(SIZE);
-                let num2 = r.next_usize(SIZE);
+                let num1 = rng.next_usize(SIZE);
+                let num2 = rng.next_usize(SIZE);
                 if num1 <= num2 {
                     (num1, num2)
                 } else {
@@ -83,7 +58,7 @@ fn bench_range_query(c: &mut Criterion) {
                 }
             },
             |(left, right)| {
-                // Perform exactly one query for range [l, rgt)
+                // Perform exactly one query for range [left, right]
                 let res = tree.query(left..=right);
                 black_box(res);
             },
@@ -97,8 +72,7 @@ fn bench_range_query(c: &mut Criterion) {
     c.bench_function("lazy_seg_tree_range_size_750_query_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let left = r.next_usize(SIZE - window);
+                let left = rng.next_usize(SIZE - window);
                 let right = left + window;
                 (left, right)
             },
@@ -118,17 +92,16 @@ fn bench_range_update(c: &mut Criterion) {
     // Construct once and perform range updates on the same tree.
     let mut tree = LazySegTreeAddSum::<i64>::from_vec(values.clone());
 
-    let rng = RefCell::new(Lcg::new(0xFEED_FACE));
+    let mut rng = rng::Lcg::new(0xFEED_FACE);
 
     // We'll perform 10 random range-add updates per iteration.
     c.bench_function("lazy_seg_tree_range_size_random_update_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let a = r.next_usize(SIZE);
-                let bidx = r.next_usize(SIZE);
+                let a = rng.next_usize(SIZE);
+                let bidx = rng.next_usize(SIZE);
                 let (left, right) = if a <= bidx { (a, bidx) } else { (bidx, a) };
-                let val = (r.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
+                let val = (rng.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
                 (left, right, val)
             },
             |(left, right, val)| {
@@ -146,11 +119,10 @@ fn bench_range_update(c: &mut Criterion) {
     c.bench_function("lazy_seg_tree_range_size_750_update_1000", |b| {
         b.iter_batched(
             || {
-                let mut r = rng.borrow_mut();
-                let a = r.next_usize(SIZE);
-                let bidx = r.next_usize(SIZE);
+                let a = rng.next_usize(SIZE);
+                let bidx = rng.next_usize(SIZE);
                 let (left, right) = if a <= bidx { (a, bidx) } else { (bidx, a) };
-                let val = (r.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
+                let val = (rng.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
                 (left, right, val)
             },
             |(left, right, val)| {
