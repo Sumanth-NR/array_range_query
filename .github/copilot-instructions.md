@@ -119,3 +119,25 @@ Functions should be organized in logical sections with clear separators:
 - Maintain backward compatibility for public APIs.
 - Document any breaking changes thoroughly.
 - Use semantic versioning appropriately.
+
+## Benchmarking (using Criterion)
+
+- Checkout `main` branch to run the baseline for Benchmarking.
+- Then checkout the branch you want to compare against.
+- Run the benchmarking script:
+  ```bash
+  cargo bench
+  ```
+- This gives a detailed report of the performance of the code.
+
+### Benchmarking Alternatively
+
+- Checkout `main` branch and perform benchmarking using Criterion once `cargo bench`.
+- Save the results into `targets/benchmarks_main` directory.
+  ```bash
+  cargo bench --save-results
+  ```
+- Compare the results with the baseline:
+  ```bash
+  cargo bench --compare-results
+  ```

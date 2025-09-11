@@ -17,7 +17,7 @@ min_max_traits = "0.1.0"
 num-traits = "0.2.19"
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[example]]
 name = "basic_usage"
@@ -26,6 +26,11 @@ path = "examples/basic_usage.rs"
 [[bench]]
 name = "seg_tree_1000"
 path = "benches/seg_tree_1000.rs"
+harness = false
+
+[[bench]]
+name = "lazy_seg_tree_1000"
+path = "benches/lazy_seg_tree_1000.rs"
 harness = false
 
 [package.metadata.docs.rs]

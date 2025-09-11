@@ -4,7 +4,7 @@ use std::path::Path;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use array_range_query::SegTreeSum;
+use array_range_query::LazySegTreeAddSum;
 
 /// Size used for the benchmarks.
 const SIZE: usize = 1000;
@@ -36,54 +36,54 @@ impl Lcg {
 fn bench_constructors(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
 
-    c.bench_function("seg_tree_new_1000", |b| {
+    c.bench_function("lazy_seg_tree_new_1000", |b| {
         b.iter(|| {
-            let tree = SegTreeSum::<i64>::new(SIZE);
-            // prevent the compiler from optimizing this away
+            let tree = LazySegTreeAddSum::<i64>::new(SIZE);
             black_box(&tree);
         })
     });
 
-    c.bench_function("seg_tree_from_slice_1000", |b| {
+    c.bench_function("lazy_seg_tree_from_slice_1000", |b| {
         b.iter(|| {
-            let tree = SegTreeSum::<i64>::from_slice(&values);
+            let tree = LazySegTreeAddSum::<i64>::from_slice(&values);
             black_box(&tree);
         })
     });
 
-    c.bench_function("seg_tree_from_vec_1000", |b| {
+    c.bench_function("lazy_seg_tree_from_vec_1000", |b| {
+        use criterion::BatchSize;
         b.iter_batched(
             || values.clone(), // cloned outside the timed closure
             |v| {
-                let tree = SegTreeSum::<i64>::from_vec(v);
+                let tree = LazySegTreeAddSum::<i64>::from_vec(v);
                 black_box(&tree);
             },
-            criterion::BatchSize::SmallInput,
+            BatchSize::SmallInput,
         )
     });
 }
 
 fn bench_range_query(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
-    let tree = SegTreeSum::<i64>::from_slice(&values);
+    let tree = LazySegTreeAddSum::<i64>::from_vec(values);
 
     // Use a RefCell-wrapped RNG so the same RNG state is used across iterations.
     let rng = RefCell::new(Lcg::new(0xC0FFEE));
 
-    c.bench_function("seg_tree_range_size_random_query_1000", |b| {
+    c.bench_function("lazy_seg_tree_range_size_random_query_1000", |b| {
         b.iter_batched(
             || {
                 let mut r = rng.borrow_mut();
-                let left = r.next_usize(SIZE);
-                let right = r.next_usize(SIZE);
-                if left <= right {
-                    (left, right)
+                let num1 = r.next_usize(SIZE);
+                let num2 = r.next_usize(SIZE);
+                if num1 <= num2 {
+                    (num1, num2)
                 } else {
-                    (right, left)
+                    (num2, num1)
                 }
             },
             |(left, right)| {
-                // Perform exactly one query for range [left, right]
+                // Perform exactly one query for range [l, rgt)
                 let res = tree.query(left..=right);
                 black_box(res);
             },
@@ -94,7 +94,7 @@ fn bench_range_query(c: &mut Criterion) {
     let window = 750usize;
     assert!(window <= SIZE);
 
-    c.bench_function("seg_tree_range_size_750_query_1000", |b| {
+    c.bench_function("lazy_seg_tree_range_size_750_query_1000", |b| {
         b.iter_batched(
             || {
                 let mut r = rng.borrow_mut();
@@ -108,39 +108,63 @@ fn bench_range_query(c: &mut Criterion) {
                 black_box(res);
             },
             criterion::BatchSize::SmallInput,
-        )
+        );
     });
 }
 
-fn bench_point_update(c: &mut Criterion) {
+fn bench_range_update(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
 
-    // Construct once (as requested) and perform updates on the same tree.
-    let mut tree = SegTreeSum::<i64>::from_vec(values.clone());
+    // Construct once and perform range updates on the same tree.
+    let mut tree = LazySegTreeAddSum::<i64>::from_vec(values.clone());
 
     let rng = RefCell::new(Lcg::new(0xFEED_FACE));
 
-    c.bench_function("seg_tree_point_update_1000", |b| {
+    // We'll perform 10 random range-add updates per iteration.
+    c.bench_function("lazy_seg_tree_range_size_random_update_1000", |b| {
         b.iter_batched(
             || {
                 let mut r = rng.borrow_mut();
-                let idx = r.next_usize(SIZE);
-                // produce a pseudo-random i64 value (may be negative)
+                let a = r.next_usize(SIZE);
+                let bidx = r.next_usize(SIZE);
+                let (left, right) = if a <= bidx { (a, bidx) } else { (bidx, a) };
                 let val = (r.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
-                (idx, val)
+                (left, right, val)
             },
-            |(idx, val)| {
-                tree.update(idx, val);
-                // keep the tree alive and prevent optimization
+            |(left, right, val)| {
+                // Update on range [left, right] with value val
+                tree.update(left..=right, val);
                 black_box(&tree);
             },
             criterion::BatchSize::SmallInput,
-        )
+        );
+    });
+
+    let window = 750usize;
+    assert!(window <= SIZE);
+
+    c.bench_function("lazy_seg_tree_range_size_750_update_1000", |b| {
+        b.iter_batched(
+            || {
+                let mut r = rng.borrow_mut();
+                let a = r.next_usize(SIZE);
+                let bidx = r.next_usize(SIZE);
+                let (left, right) = if a <= bidx { (a, bidx) } else { (bidx, a) };
+                let val = (r.next_u64() as i64).wrapping_sub(0x4000_0000_0000_0000u64 as i64);
+                (left, right, val)
+            },
+            |(left, right, val)| {
+                // Update on range [left, right] with value val
+                tree.update(left..=right, val);
+                black_box(&tree);
+            },
+            criterion::BatchSize::SmallInput,
+        );
     });
 }
 
 fn criterion_config() -> Criterion {
-    Criterion::default().output_directory(Path::new("target/criterion/seg_tree_1000"))
+    Criterion::default().output_directory(Path::new("target/criterion/lazy_seg_tree_1000"))
 }
 
 criterion_group! {
@@ -148,6 +172,6 @@ criterion_group! {
     config = criterion_config();
     targets = bench_constructors,
               bench_range_query,
-              bench_point_update,
+              bench_range_update
 }
 criterion_main!(benches);
