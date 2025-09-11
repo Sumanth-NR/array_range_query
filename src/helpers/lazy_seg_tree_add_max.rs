@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_add_max_basic_operations() {
         let values = vec![1i32, 3, 2, 5, 4];
-        let tree = LazySegTreeAddMax::<i32>::from_vec(values);
+        let mut tree = LazySegTreeAddMax::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 5); // Max of all: max(1,3,2,5,4) = 5

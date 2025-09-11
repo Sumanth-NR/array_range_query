@@ -17,11 +17,9 @@ The implementation is deliberately generic and configurable via the
 ## Design notes
 
 - API distinction between read and write:
-  - `query(&self, ...)` is provided as `&self`. Internally it uses
-    `RefCell` to push lazy tags while preserving a read-only public API.
-  - `update(&mut self, ...)` requires `&mut self` and uses direct mutable
-    access to the internal buffers for better performance and simpler
-    borrowing semantics.
+  - Both `query` and `update` methods require mutable access (`&mut self`)
+    to the tree. This allows for maximum performance and compile-time safety,
+    as all operations can modify the internal lazy tags.
 
 - Storage layout:
   - A complete binary tree is stored in a `Box<[]>` (a boxed slice) using
@@ -38,9 +36,8 @@ The implementation is deliberately generic and configurable via the
 2. Construct a tree:
    - `LazySegTree::new(size)` creates a tree with all values set to `Spec::ID`.
    - `LazySegTree::from_vec(values)` builds the tree from an initial slice.
-3. Use `query` and `update` to perform operations. `query` will return the
-   aggregate over a half-open interval, and `update` will apply a lazy
-   update to every element in the interval.
+3. Use `query` and `update` to perform operations. Both require a mutable
+   reference to the tree.
 
 ## Example (Range Add + Range Sum)
 
@@ -72,23 +69,12 @@ assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
 tree.update(1..4, 10); // add 10 to indices 1..4
 assert_eq!(tree.query(..), 45);
 ```
-
-## Panics and safety
-
-- `validate_range` asserts that `left <= right` and `right <= size`. If the
-  caller violates these preconditions the library panics with a helpful
-  message.
-- Because `query(&self, ..)` uses interior mutability (`RefCell`), a
-  runtime panic will occur if external code causes conflicting borrows that
-  violate `RefCell` rules. Typical use does not trigger this, but it is a
-  potential runtime failure mode to be aware of.
 */
 
 use crate::utils;
 use core::marker::PhantomData;
 use core::ops::RangeBounds;
 
-use core::cell::RefCell;
 use core::fmt::Display;
 
 /// Specification trait for `LazySegTree`.
@@ -150,9 +136,9 @@ pub struct LazySegTree<Spec: LazySegTreeSpec> {
     /// The number of leaf nodes in the internal tree (next power of 2 >= size)
     max_size: usize,
     /// Tree data stored as a flat boxed slice with 1-based indexing
-    data: RefCell<Box<[Spec::T]>>,
+    data: Box<[Spec::T]>,
     /// Lazy propagation tags for pending updates
-    tags: RefCell<Box<[Option<Spec::U>]>>,
+    tags: Box<[Option<Spec::U>]>,
     /// Zero-sized marker to associate the `Spec` type with the struct
     _spec: PhantomData<Spec>,
 }
@@ -178,7 +164,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
-    /// let tree = LazySegTree::<RangeAddSum>::new(100);
+    /// let mut tree = LazySegTree::<RangeAddSum>::new(100);
     /// assert_eq!(tree.query(..), 0); // All elements start as identity (0)
     /// ```
     pub fn new(size: usize) -> Self {
@@ -186,8 +172,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(vec![Spec::ID; max_size * 2].into_boxed_slice()),
-            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
+            data: vec![Spec::ID; max_size * 2].into_boxed_slice(),
+            tags: vec![None; max_size * 2].into_boxed_slice(),
             _spec: PhantomData,
         }
     }
@@ -211,7 +197,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = LazySegTree::<RangeAddSum>::from_slice(&values);
+    /// let mut tree = LazySegTree::<RangeAddSum>::from_slice(&values);
     /// assert_eq!(tree.query(..), 15); // Sum of all elements
     /// ```
     pub fn from_slice(values: &[Spec::T]) -> Self {
@@ -232,8 +218,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(data.into_boxed_slice()),
-            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
+            data: data.into_boxed_slice(),
+            tags: vec![None; max_size * 2].into_boxed_slice(),
             _spec: PhantomData,
         }
     }
@@ -258,7 +244,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
     /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(values);
+    /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(values);
     /// assert_eq!(tree.query(..), 15); // Sum of all elements
     /// ```
     pub fn from_vec(values: Vec<Spec::T>) -> Self {
@@ -282,8 +268,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(data.into_boxed_slice()),
-            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
+            data: data.into_boxed_slice(),
+            tags: vec![None; max_size * 2].into_boxed_slice(),
             _spec: PhantomData,
         }
     }
@@ -295,6 +281,9 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// Returns the aggregate value over the specified range using the `op_on_data` operation.
     /// The range can be any type that implements `RangeBounds<usize>`, such as
     /// `a..b`, `a..=b`, `..b`, `a..`, or `..`.
+    ///
+    /// This method requires a mutable reference to the tree because a query may
+    /// trigger lazy updates to be propagated down the tree.
     ///
     /// # Time Complexity
     /// O(log n)
@@ -312,11 +301,11 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
     /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
     /// # }
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
     /// assert_eq!(tree.query(1..4), 9);  // Sum of elements [2, 3, 4]
     /// assert_eq!(tree.query(..), 15);   // Sum of all elements
     /// ```
-    pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
+    pub fn query<R: RangeBounds<usize>>(&mut self, range: R) -> Spec::T {
         let (left, right) = utils::parse_range(range, self.size);
         utils::validate_range(left, right, self.size);
 
@@ -379,36 +368,14 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
     /// Push a pending tag at `index` down to the node's data and to its children.
     ///
-    /// This version is used from `&self` query paths and uses `RefCell` borrows.
     /// The `node_size` parameter represents the number of leaves covered by this node.
-    ///
-    /// # Panics
-    /// Panics if `RefCell` borrow rules are violated (e.g., conflicting borrows exist).
-    fn push(&self, index: usize, node_size: usize) {
-        let mut tags = self.tags.borrow_mut();
-        if let Some(tag) = tags[index].take() {
-            let mut data = self.data.borrow_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
+    fn push(&mut self, index: usize, node_size: usize) {
+        if let Some(tag) = self.tags[index].take() {
+            Spec::op_update_on_data(&tag, &mut self.data[index], node_size);
 
             if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
-            }
-        }
-    }
-
-    /// Push a pending tag at `index` down using direct mutable access.
-    ///
-    /// Called from `&mut self` update paths; avoids `RefCell` overhead for better performance.
-    fn push_mut(&mut self, index: usize, node_size: usize) {
-        let tags = self.tags.get_mut();
-        if let Some(tag) = tags[index].take() {
-            let data = self.data.get_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
-
-            if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
+                Self::combine_tag_option(&mut self.tags[index * 2], &tag);
+                Self::combine_tag_option(&mut self.tags[index * 2 + 1], &tag);
             }
         }
     }
@@ -416,12 +383,10 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// Recompute the value at `index` from its children.
     ///
     /// This method pulls up values from child nodes and combines them using `op_on_data`.
-    /// Only called from `&mut self` paths, so uses direct mutable access.
-    fn pull_mut(&mut self, index: usize) {
-        let data = self.data.get_mut();
-        let mut v = data[index * 2].clone();
-        Spec::op_on_data(&mut v, &data[index * 2 + 1]);
-        data[index] = v;
+    fn pull(&mut self, index: usize) {
+        let mut v = self.data[index * 2].clone();
+        Spec::op_on_data(&mut v, &self.data[index * 2 + 1]);
+        self.data[index] = v;
     }
 
     /// Internal recursive query implementation.
@@ -434,7 +399,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// - `node_left`, `node_right`: Half-open interval [node_left, node_right) covered by this node
     /// - `left`, `right`: Query range [left, right)
     fn query_internal(
-        &self,
+        &mut self,
         index: usize,
         node_left: usize,
         left: usize,
@@ -451,7 +416,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
         if left <= node_left && node_right <= right {
             // Node is fully covered by the query range
-            return self.data.borrow()[index].clone();
+            self.data[index].clone()
         } else {
             // Partial overlap - combine results from children
             let mid = (node_left + node_right) / 2;
@@ -483,23 +448,20 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     ) {
         if left >= node_right || right <= node_left {
             // No overlap: ensure the node's pending tag is applied to maintain invariants
-            self.push_mut(index, node_right - node_left);
+            self.push(index, node_right - node_left);
         } else if left <= node_left && node_right <= right {
             // Node is fully covered: apply lazy update
-            {
-                let tags = self.tags.get_mut();
-                Self::combine_tag_option(&mut tags[index], &value);
-            }
+            Self::combine_tag_option(&mut self.tags[index], &value);
             // Apply the update immediately to this node's stored data
-            self.push_mut(index, node_right - node_left);
+            self.push(index, node_right - node_left);
         } else {
             // Partial overlap: push pending updates before recursing
-            self.push_mut(index, node_right - node_left);
+            self.push(index, node_right - node_left);
             let mid = (node_left + node_right) / 2;
             self.update_internal(index * 2, node_left, left, right, mid, value.clone());
             self.update_internal(index * 2 + 1, mid, left, right, node_right, value);
             // Recompute this node's aggregate after updating children
-            self.pull_mut(index);
+            self.pull(index);
         }
     }
 }
@@ -550,8 +512,8 @@ where
         writeln!(f, "  Size: {} (Internal: {})", self.size, self.max_size)?;
 
         // Inspect internal data structures
-        let data = self.data.borrow();
-        let tags = self.tags.borrow();
+        let data = &self.data;
+        let tags = &self.tags;
 
         // Show only non-identity data values
         let data_values: Vec<Option<Spec::T>> = data
@@ -610,24 +572,24 @@ mod tests {
     #[test]
     fn constructors() {
         // `new` should create an identity-filled tree
-        let tree = LazySegTree::<RangeAddSum>::new(8);
+        let mut tree = LazySegTree::<RangeAddSum>::new(8);
         assert_eq!(tree.query(..), 0);
 
         // `from_slice` should build from a slice
         let arr = [1i64, 2, 3, 4, 5, 6, 7, 8];
-        let tree_slice = LazySegTree::<RangeAddSum>::from_slice(&arr);
+        let mut tree_slice = LazySegTree::<RangeAddSum>::from_slice(&arr);
         assert_eq!(tree_slice.query(..), 36);
         assert_eq!(tree_slice.query(3..6), 4 + 5 + 6);
 
         // `from_vec` should consume an owned vector
-        let tree_vec = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3]);
+        let mut tree_vec = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3]);
         assert_eq!(tree_vec.query(..), 6);
         assert_eq!(tree_vec.query(1..2), 2);
     }
 
     #[test]
     fn querying() {
-        let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3, 4, 5, 6, 7, 8]);
+        let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1i64, 2, 3, 4, 5, 6, 7, 8]);
 
         // full range
         assert_eq!(tree.query(..), 36);
@@ -709,7 +671,7 @@ mod tests {
     #[should_panic(expected = "Invalid range: got")]
     #[allow(clippy::reversed_empty_ranges)]
     fn test_panic_invalid_range() {
-        let tree = LazySegTree::<RangeAddSum>::new(10);
+        let mut tree = LazySegTree::<RangeAddSum>::new(10);
         tree.query(5..4);
     }
 }

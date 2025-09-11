@@ -13,5 +13,9 @@
 
 - [x] `from_vec` in `LazySegTree` must take ownership of the vector
 - [x] Add profiling to the library README
-- [ ] Try using `Box<&[T]>` instead of `Vec<T>`
-- [ ] Add Immutable Array Range Queries (SparseTable) for idempotent operations with `O(1)` query time and `O(n log n)` space complexity
+- [x] Try using `Box<[T]>` instead of `Vec<T>`
+
+## Version 0.4
+
+- [ ] Add Immutable Array Range Queries (SparseTable) for idempotent
+operations with `O(1)` query time and `O(n log n)` space complexity

@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn test_add_sum_basic_operations() {
         let values = vec![1i32, 2, 3, 4, 5];
-        let tree = LazySegTreeAddSum::<i32>::from_vec(values);
+        let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 15); // Sum of all: 1+2+3+4+5

@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_initial_and_point_queries() {
         let values = vec![1, 2, 3, 4, 5];
-        let tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
 
         assert_eq!(tree.query(..), 15);
         assert_eq!(tree.query(1..4), 9);
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_noop_update_none() {
-        let tree = LazySegTreeReplaceSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+        let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
         let original = tree.query(..);
         // No-op update is not possible with non-Option update type, so just check original value
         assert_eq!(tree.query(..), original);

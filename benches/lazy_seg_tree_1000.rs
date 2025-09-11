@@ -41,7 +41,7 @@ fn bench_constructors(c: &mut Criterion) {
 
 fn bench_range_query(c: &mut Criterion) {
     let values: Vec<i64> = (1..=SIZE as i64).collect();
-    let tree = LazySegTreeAddSum::<i64>::from_vec(values);
+    let mut tree = LazySegTreeAddSum::<i64>::from_vec(values);
 
     // Use a plain mutable RNG so the same RNG state is used across iterations.
     let mut rng = rng::Lcg::new(0xC0FFEE);

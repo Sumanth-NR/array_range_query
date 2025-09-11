@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_add_min_basic_operations() {
         let values = vec![5, 2, 8, 1, 9, 3];
-        let tree = LazySegTreeAddMin::<i32>::from_vec(values);
+        let mut tree = LazySegTreeAddMin::<i32>::from_vec(values);
 
         // Test initial queries
         assert_eq!(tree.query(..), 1); // min(5,2,8,1,9,3) = 1
