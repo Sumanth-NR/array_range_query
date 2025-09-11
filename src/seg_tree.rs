@@ -184,8 +184,8 @@ pub struct SegTree<Spec: SegTreeSpec> {
     size: usize,
     /// The number of leaf nodes in the internal tree (next power of 2 ≥ size)
     max_size: usize,
-    /// Tree data stored as a flat vector using 1-based indexing
-    data: Vec<Spec::T>,
+    /// Tree data stored as a flat boxed slice using 1-based indexing
+    data: Box<[Spec::T]>,
     /// Zero-sized marker to associate the `Spec` type with the struct
     _spec: PhantomData<Spec>,
 }
@@ -221,12 +221,12 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         Self {
             size,
             max_size,
-            data: vec![Spec::ID; max_size * 2],
+            data: vec![Spec::ID; max_size * 2].into_boxed_slice(),
             _spec: PhantomData,
         }
     }
 
-    /// Creates a new `SegTree` from a vector of initial values.
+    /// Creates a new `SegTree` from a slice of initial values.
     ///
     /// The tree is built in O(n) time using a bottom-up approach, which is more
     /// efficient than creating an empty tree and updating each element individually.
@@ -269,7 +269,7 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         Self {
             size,
             max_size,
-            data,
+            data: data.into_boxed_slice(),
             _spec: PhantomData,
         }
     }
@@ -320,7 +320,7 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         Self {
             size,
             max_size,
-            data,
+            data: data.into_boxed_slice(),
             _spec: PhantomData,
         }
     }

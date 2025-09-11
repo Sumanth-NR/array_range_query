@@ -24,9 +24,9 @@ The implementation is deliberately generic and configurable via the
     borrowing semantics.
 
 - Storage layout:
-  - A complete binary tree is stored in a `Vec` using 1-based indexing
-    (i.e. root at index `1`). The number of leaves is `max_size`, the next
-    power of two >= logical `size`. Total storage uses `max_size * 2` slots.
+  - A complete binary tree is stored in a `Box<[]>` (a boxed slice) using
+    1-based indexing (i.e. root at index `1`). The number of leaves is `max_size`,
+    the next power of two >= logical `size`. Total storage uses `max_size * 2` slots.
 
 - Ranges are half-open: `[left, right)`. This is consistent across
   `query` and `update`.
@@ -149,10 +149,10 @@ pub struct LazySegTree<Spec: LazySegTreeSpec> {
     size: usize,
     /// The number of leaf nodes in the internal tree (next power of 2 >= size)
     max_size: usize,
-    /// Tree data stored as a flat vector with 1-based indexing
-    data: RefCell<Vec<Spec::T>>,
+    /// Tree data stored as a flat boxed slice with 1-based indexing
+    data: RefCell<Box<[Spec::T]>>,
     /// Lazy propagation tags for pending updates
-    tags: RefCell<Vec<Option<Spec::U>>>,
+    tags: RefCell<Box<[Option<Spec::U>]>>,
     /// Zero-sized marker to associate the `Spec` type with the struct
     _spec: PhantomData<Spec>,
 }
@@ -186,8 +186,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(vec![Spec::ID; max_size * 2]),
-            tags: RefCell::new(vec![None; max_size * 2]),
+            data: RefCell::new(vec![Spec::ID; max_size * 2].into_boxed_slice()),
+            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
         }
     }
@@ -232,8 +232,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(data),
-            tags: RefCell::new(vec![None; max_size * 2]),
+            data: RefCell::new(data.into_boxed_slice()),
+            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
         }
     }
@@ -282,8 +282,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
-            data: RefCell::new(data),
-            tags: RefCell::new(vec![None; max_size * 2]),
+            data: RefCell::new(data.into_boxed_slice()),
+            tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
         }
     }
@@ -512,7 +512,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 /// pending tags for debugging and inspection purposes.
 fn print_tree_option<T: Display>(
     f: &mut std::fmt::Formatter<'_>,
-    tree: &Vec<&Option<T>>,
+    tree: &[&Option<T>],
     index: usize,
     depth: usize,
     l: usize,
@@ -564,14 +564,14 @@ where
                 }
             })
             .collect();
-        let data_values = data_values.iter().collect::<Vec<_>>();
-        let tag_values = tags.iter().collect::<Vec<_>>();
+        let data_values_slice = data_values.iter().collect::<Vec<_>>();
+        let tag_values_slice = tags.iter().collect::<Vec<_>>();
 
         writeln!(f, "  Data:")?;
-        print_tree_option(f, &data_values, 1, 2, 0, self.max_size)?;
+        print_tree_option(f, &data_values_slice, 1, 2, 0, self.max_size)?;
 
         writeln!(f, "  Lazy Tags:")?;
-        print_tree_option(f, &tag_values, 1, 2, 0, self.max_size)?;
+        print_tree_option(f, &tag_values_slice, 1, 2, 0, self.max_size)?;
 
         writeln!(f, "}}")?;
 
