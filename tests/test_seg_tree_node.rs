@@ -125,13 +125,13 @@ mod comprehensive_tests {
             let node = SegTreeNode(node_idx);
 
             assert_eq!(
-                node.node_left_bound(max_depth),
+                node.left_bound(max_depth),
                 expected_left,
                 "Node {} left bound",
                 node_idx
             );
             assert_eq!(
-                node.node_right_bound(max_depth),
+                node.right_bound(max_depth),
                 expected_right,
                 "Node {} right bound",
                 node_idx
@@ -143,7 +143,7 @@ mod comprehensive_tests {
                 node_idx
             );
             assert_eq!(
-                node.node_size(max_depth),
+                node.size(max_depth),
                 expected_size,
                 "Node {} size",
                 node_idx
@@ -164,9 +164,9 @@ mod comprehensive_tests {
         ];
 
         for (max_depth, expected_left, expected_right, expected_size) in depth_tests {
-            assert_eq!(root.node_left_bound(max_depth), expected_left);
-            assert_eq!(root.node_right_bound(max_depth), expected_right);
-            assert_eq!(root.node_size(max_depth), expected_size);
+            assert_eq!(root.left_bound(max_depth), expected_left);
+            assert_eq!(root.right_bound(max_depth), expected_right);
+            assert_eq!(root.size(max_depth), expected_size);
         }
     }
 
@@ -335,13 +335,13 @@ mod comprehensive_tests {
         let max_depth = 6;
         let root = SegTreeNode(1);
 
-        assert_eq!(root.node_size(max_depth), 64);
+        assert_eq!(root.size(max_depth), 64);
         assert_eq!(root.node_bounds(max_depth), (0, 64));
 
         // Test deep leaf
         let deep_leaf = SegTreeNode(64); // First leaf at depth 6
         assert!(deep_leaf.is_leaf(max_depth));
-        assert_eq!(deep_leaf.node_size(max_depth), 1);
+        assert_eq!(deep_leaf.size(max_depth), 1);
         assert_eq!(deep_leaf.node_bounds(max_depth), (0, 1));
 
         // Test last leaf
@@ -356,7 +356,7 @@ mod comprehensive_tests {
         let max_depth = 1;
         let root = SegTreeNode(1);
 
-        assert_eq!(root.node_size(max_depth), 2);
+        assert_eq!(root.size(max_depth), 2);
         assert_eq!(root.node_bounds(max_depth), (0, 2));
         assert!(!root.is_leaf(max_depth));
 

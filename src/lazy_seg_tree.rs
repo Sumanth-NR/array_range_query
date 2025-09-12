@@ -84,7 +84,7 @@ assert_eq!(tree.query(..), 45);
   potential runtime failure mode to be aware of.
 */
 
-use crate::utils;
+use crate::{utils, SegTreeNode};
 use core::marker::PhantomData;
 use core::ops::RangeBounds;
 
@@ -149,6 +149,8 @@ pub struct LazySegTree<Spec: LazySegTreeSpec> {
     size: usize,
     /// The number of leaf nodes in the internal tree (next power of 2 >= size)
     max_size: usize,
+    /// The maximum depth of the tree log_2(max_size)
+    max_depth: u32,
     /// Tree data stored as a flat boxed slice with 1-based indexing
     data: RefCell<Box<[Spec::T]>>,
     /// Lazy propagation tags for pending updates
@@ -183,9 +185,11 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// ```
     pub fn new(size: usize) -> Self {
         let max_size = size.next_power_of_two();
+        let max_depth = max_size.trailing_zeros();
         Self {
             size,
             max_size,
+            max_depth,
             data: RefCell::new(vec![Spec::ID; max_size * 2].into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
@@ -217,6 +221,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
         let max_size = size.next_power_of_two();
+        let max_depth = max_size.trailing_zeros();
         let mut data = vec![Spec::ID; max_size * 2];
 
         // Copy leaves and build internal nodes bottom-up
@@ -231,6 +236,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
         Self {
             size,
+            max_depth,
             max_size,
             data: RefCell::new(data.into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
@@ -264,6 +270,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     pub fn from_vec(values: Vec<Spec::T>) -> Self {
         let size = values.len();
         let max_size = size.next_power_of_two();
+        let max_depth = max_size.trailing_zeros();
         let mut data = vec![Spec::ID; max_size * 2];
 
         // Move owned values directly into the leaf slots to avoid cloning
@@ -282,6 +289,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
+            max_depth,
             data: RefCell::new(data.into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
@@ -319,14 +327,64 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// assert_eq!(tree.query(..), 15);   // Sum of all elements
     /// ```
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
-        let (left, right) = utils::parse_range(range, self.size);
-        utils::validate_range(left, right, self.size);
-
-        if left == right {
+        let (left_inp, right_inp) = utils::parse_range(range, self.size);
+        if left_inp >= right_inp {
             return Spec::ID;
         }
 
-        self.query_internal(1, 0, left, right, self.max_size)
+        let root = SegTreeNode(1);
+        let left = SegTreeNode(self.max_size + left_inp);
+        let right = SegTreeNode(self.max_size + right_inp);
+
+        let lca = SegTreeNode::get_lca_from_same_depth(left, right);
+        let left = left.get_left_binding_node();
+        let right = right.get_right_binding_node();
+
+        // Push nodes
+        self.push_nodes(root, left);
+        self.push_nodes(lca, right);
+
+        if left == lca && lca == right {
+            return self.data.borrow()[left.0].clone();
+        }
+
+        // We need to collect the results now
+
+        let data = self.data.borrow();
+
+        let mut cur = left;
+        let mut result: Spec::T;
+
+        // Adding the left part
+        result = data[if cur == lca {
+            cur.left_child().0
+        } else {
+            cur.0
+        }]
+        .clone();
+        while cur != lca {
+            if cur.is_left_child() {
+                Spec::op_on_data(&mut result, &data[cur.sibling().0]);
+            }
+            cur = cur.parent();
+        }
+
+        // Adding the right part
+        if right == lca {
+            Spec::op_on_data(&mut result, &data[right.0]);
+        } else {
+            cur = right.right_child();
+        }
+        while cur.right_bound(self.max_depth) > right_inp {
+            if cur.mid(self.max_depth) <= right_inp {
+                Spec::op_on_data(&mut result, &data[cur.left_child().0]);
+                cur = cur.right_child();
+            } else {
+                cur = cur.left_child();
+            }
+        }
+
+        result
     }
 
     /// Apply `value` lazily to the range specified by `range`.
@@ -357,150 +415,114 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     /// assert_eq!(tree.query(..), 45); // 1 + 12 + 13 + 14 + 5
     /// ```
     pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
-        let (left, right) = utils::parse_range(range, self.size);
-        utils::validate_range(left, right, self.size);
-
-        if left == right {
+        let (left_inp, right_inp) = utils::parse_range(range, self.size);
+        if left_inp >= right_inp {
             return;
         }
 
-        self.update_internal(1, 0, left, right, self.max_size, value);
+        let root = SegTreeNode(1);
+        let left = SegTreeNode(self.max_size + left_inp);
+        let right = SegTreeNode(self.max_size + right_inp);
+
+        let lca = SegTreeNode::get_lca_from_same_depth(left, right);
+        let left = left.get_left_binding_node();
+        let right = right.get_right_binding_node();
+
+        // Push nodes
+        self.push_nodes(root, left);
+        self.push_nodes(lca, right);
+
+        if lca.is_leaf(self.max_depth) {
+            let data = self.data.get_mut();
+            Spec::op_update_on_data(&value, &mut data[lca.0], 1);
+            return;
+        }
+
+        if left == lca {
+            let tags = self.tags.get_mut();
+            Self::combine_tag_option(&mut tags[lca.left_child().0], &value);
+        } else {
+            let mut cur = left;
+            self.push_node(cur);
+            while cur != lca.left_child() {
+                if cur.is_left_child() {
+                    let tags = self.tags.get_mut();
+                    Self::combine_tag_option(&mut tags[cur.sibling().0], &value);
+                }
+                self.pull_node(cur);
+                cur = cur.parent();
+            }
+        }
+
+        if right == lca {
+            let tags = self.tags.get_mut();
+            Self::combine_tag_option(&mut tags[lca.right_child().0], &value);
+        } else {
+            let mut cur = right;
+            self.push_node(cur);
+            while cur != lca.right_child() {
+                if cur.is_right_child() {
+                    let tags = self.tags.get_mut();
+                    Self::combine_tag_option(&mut tags[cur.sibling().0], &value);
+                }
+                self.pull_node(cur);
+                cur = cur.parent();
+            }
+        }
+
+        let mut cur = lca;
+        while lca != root {
+            self.pull_node(cur);
+            cur = cur.parent();
+        }
     }
 
     // ===== PRIVATE HELPER METHODS =====
 
-    /// Private helper to combine an existing optional tag with a new tag.
-    ///
-    /// If there's an existing tag, compose them using `op_on_update`.
-    /// Otherwise, install the new tag.
+    fn pull_node(&mut self, node: SegTreeNode) {
+        self.push_node(node.sibling());
+        let node = node.parent();
+
+        let mut data = self.data.borrow_mut();
+        data[node.0] = data[node.left_child().0].clone();
+        let right_data = data[node.right_child().0].clone();
+        Spec::op_on_data(&mut data[node.0], &right_data);
+    }
+
+    fn push_nodes(&self, mut root: SegTreeNode, node: SegTreeNode) {
+        while root != node && !root.is_leaf(self.max_depth) {
+            self.push_node(root);
+            if root.right_bound(self.max_depth) <= node.mid(self.max_depth) {
+                root = root.right_child();
+            } else {
+                root = root.left_child();
+            }
+        }
+    }
+
+    /// Push a pending tag down
+    #[inline]
+    fn push_node(&self, node: SegTreeNode) {
+        let mut tags = self.tags.borrow_mut();
+        if let Some(tag) = tags[node.0].take() {
+            let mut data = self.data.borrow_mut();
+            Spec::op_update_on_data(&tag, &mut data[node.0], node.size(self.max_depth));
+            if node.left_child().is_leaf(self.max_depth) {
+                Spec::op_update_on_data(&tag, &mut data[node.left_child().0], 1);
+                Spec::op_update_on_data(&tag, &mut data[node.right_child().0], 1);
+            } else {
+                Self::combine_tag_option(&mut tags[node.left_child().0], &tag);
+                Self::combine_tag_option(&mut tags[node.right_child().0], &tag);
+            }
+        }
+    }
+
+    #[inline]
     fn combine_tag_option(existing_tag: &mut Option<Spec::U>, new_tag: &Spec::U) {
         if let Some(existing) = existing_tag {
             Spec::op_on_update(existing, new_tag);
         } else {
             *existing_tag = Some(new_tag.clone());
-        }
-    }
-
-    /// Push a pending tag at `index` down using direct mutable access.
-    ///
-    /// Called from `&mut self` update paths; avoids `RefCell` overhead for better performance.
-    fn push_mut(&mut self, index: usize, node_size: usize) {
-        let tags = self.tags.get_mut();
-        if let Some(tag) = tags[index].take() {
-            let data = self.data.get_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
-
-            if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
-            }
-        }
-    }
-
-    /// Recompute the value at `index` from its children.
-    ///
-    /// This method pulls up values from child nodes and combines them using `op_on_data`.
-    /// Only called from `&mut self` paths, so uses direct mutable access.
-    fn pull_mut(&mut self, index: usize) {
-        let data = self.data.get_mut();
-        let mut v = data[index * 2].clone();
-        Spec::op_on_data(&mut v, &data[index * 2 + 1]);
-        data[index] = v;
-    }
-
-    /// Internal recursive query implementation.
-    ///
-    /// Traverses the tree to find nodes that overlap with the query range [left, right)
-    /// and combines their values.
-    ///
-    /// ## Parameters
-    /// - `index`: Current node index in the tree array
-    /// - `node_left`, `node_right`:
-    ///    Half-open interval [node_left, node_right) covered by this node
-    /// - `left`, `right`: Query range [left, right)
-    ///
-    /// ## Important
-    /// - Function assumes that there is some intersection between
-    ///   the query range and the node's range.
-    fn query_internal(
-        &self,
-        index: usize,
-        node_left: usize,
-        left: usize,
-        right: usize,
-        node_right: usize,
-    ) -> Spec::T {
-        // Ensure current node's pending tag (if any) is applied before reading
-        // This is done to ensure that the node's value is up-to-date before querying it.
-        {
-            let mut tags = self.tags.borrow_mut();
-            if let Some(tag) = tags[index].take() {
-                let mut data = self.data.borrow_mut();
-                Spec::op_update_on_data(&tag, &mut data[index], node_right - node_left);
-                if index < self.max_size {
-                    tags[index * 2] = Some(tag.clone());
-                    tags[index * 2 + 1] = Some(tag);
-                }
-            }
-        }
-
-        if left <= node_left && node_right <= right {
-            // Node is fully covered by the query range (update ensured)
-            return self.data.borrow()[index].clone();
-        } else {
-            // Partial overlap - combine results from children
-            let mid = (node_left + node_right) / 2;
-            if right <= mid {
-                return self.query_internal(index * 2, node_left, left, right, mid);
-            } else if left >= mid {
-                return self.query_internal(index * 2 + 1, mid, left, right, node_right);
-            } else {
-                let mut left_result = self.query_internal(index * 2, node_left, left, right, mid);
-                let right_result = self.query_internal(index * 2 + 1, mid, left, right, node_right);
-                Spec::op_on_data(&mut left_result, &right_result);
-                left_result
-            }
-        }
-    }
-
-    /// Internal recursive update implementation.
-    ///
-    /// Applies the update `value` to all elements in the range [left, right).
-    /// Uses lazy propagation to efficiently handle range updates.
-    ///
-    /// # Parameters
-    /// - `index`: Current node index in the tree array
-    /// - `node_left`, `node_right`: Half-open interval [node_left, node_right) covered by this node
-    /// - `left`, `right`: Update range [left, right)
-    /// - `value`: Update value to apply
-    fn update_internal(
-        &mut self,
-        index: usize,
-        node_left: usize,
-        left: usize,
-        right: usize,
-        node_right: usize,
-        value: Spec::U,
-    ) {
-        if left >= node_right || right <= node_left {
-            // No overlap: ensure the node's pending tag is applied to maintain invariants
-            self.push_mut(index, node_right - node_left);
-        } else if left <= node_left && node_right <= right {
-            // Node is fully covered: apply lazy update
-            {
-                let tags = self.tags.get_mut();
-                Self::combine_tag_option(&mut tags[index], &value);
-            }
-            // Apply the update immediately to this node's stored data
-            self.push_mut(index, node_right - node_left);
-        } else {
-            // Partial overlap: push pending updates before recursing
-            self.push_mut(index, node_right - node_left);
-            let mid = (node_left + node_right) / 2;
-            self.update_internal(index * 2, node_left, left, right, mid, value.clone());
-            self.update_internal(index * 2 + 1, mid, left, right, node_right, value);
-            // Recompute this node's aggregate after updating children
-            self.pull_mut(index);
         }
     }
 }

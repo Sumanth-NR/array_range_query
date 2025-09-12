@@ -95,8 +95,8 @@
     2. `push_nodes(idx_root, idx_lca)`
     3. `push_nodes(idx_lca, idx_left)`
     4. `push_nodes(idx_lca, idx_right)`
-    5. `pull_nodes(idx_lca, idx_left)`
-    6. `pull_nodes(idx_lca, idx_right)`
+    5. `pull_nodes(idx_left, idx_lca)`
+    6. `pull_nodes(idx_right, idx_lca)`
     7. `pull_nodes(idx_lca, idx_root)`
 
 - **Update**: Update the range `[left, right)`.

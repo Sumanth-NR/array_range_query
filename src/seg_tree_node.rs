@@ -33,7 +33,7 @@
 /// assert_eq!(right_child.0, 3);
 /// ```
 #[repr(transparent)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct SegTreeNode(pub usize);
 
 impl SegTreeNode {
@@ -171,6 +171,24 @@ impl SegTreeNode {
         !self.is_root() && self.0 & 1 == 0
     }
 
+    /// Given that this node is not root,
+    /// checks if it is the left child of its parent.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use array_range_query::SegTreeNode;
+    ///
+    /// let left = SegTreeNode(4);
+    /// let right = SegTreeNode(5);
+    /// assert!(left.is_left_child_if_not_root());
+    /// assert!(!right.is_left_child_if_not_root());
+    /// ```
+    #[inline]
+    pub fn is_left_child_if_not_root(&self) -> bool {
+        self.0 & 1 == 0
+    }
+
     /// Returns true if this node is a right child of its parent.
     ///
     /// # Examples
@@ -186,6 +204,24 @@ impl SegTreeNode {
     #[inline]
     pub fn is_right_child(&self) -> bool {
         !self.is_root() && self.0 & 1 == 1
+    }
+
+    /// Given that this node is not root,
+    /// checks if it is the right child of its parent.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use array_range_query::SegTreeNode;
+    ///
+    /// let left = SegTreeNode(4);
+    /// let right = SegTreeNode(5);
+    /// assert!(!left.is_right_child_if_not_root());
+    /// assert!(right.is_right_child_if_not_root());
+    /// ```
+    #[inline]
+    pub fn is_right_child_if_not_root(&self) -> bool {
+        self.0 & 1 == 1
     }
 
     /// Returns the depth of this node in the tree.
@@ -242,18 +278,18 @@ impl SegTreeNode {
     ///
     /// let root = SegTreeNode(1);
     /// let leaf = SegTreeNode(8);
-    /// assert_eq!(root.node_size(3), 8);  // Root covers entire array of size 8
-    /// assert_eq!(leaf.node_size(3), 1);  // Leaf covers single element
+    /// assert_eq!(root.size(3), 8);  // Root covers entire array of size 8
+    /// assert_eq!(leaf.size(3), 1);  // Leaf covers single element
     /// ```
     #[inline]
-    pub fn node_size(&self, max_depth: u32) -> usize {
+    pub fn size(&self, max_depth: u32) -> usize {
         1 << (max_depth - self.depth())
     }
 
     /// Returns the left boundary of the range this node represents.
     ///
     /// # Parameters
-    /// - `max_depth`: The maximum depth of the tree
+    /// - `max_depth`: The maximum depth of the tree (depth of leaf nodes)
     ///
     /// # Examples
     ///
@@ -261,10 +297,10 @@ impl SegTreeNode {
     /// use array_range_query::SegTreeNode;
     ///
     /// let node = SegTreeNode(2);  // Left child of root
-    /// assert_eq!(node.node_left_bound(3), 0);  // Covers [0, 4)
+    /// assert_eq!(node.left_bound(3), 0);  // Covers [0, 4)
     /// ```
     #[inline]
-    pub fn node_left_bound(&self, max_depth: u32) -> usize {
+    pub fn left_bound(&self, max_depth: u32) -> usize {
         let depth = self.depth();
         let pos = self.0 - (1 << depth);
         pos * (1 << (max_depth - depth))
@@ -273,7 +309,7 @@ impl SegTreeNode {
     /// Returns the right boundary of the range this node represents.
     ///
     /// # Parameters
-    /// - `max_depth`: The maximum depth of the tree
+    /// - `max_depth`: The maximum depth of the tree (depth of leaf nodes)
     ///
     /// # Examples
     ///
@@ -281,19 +317,27 @@ impl SegTreeNode {
     /// use array_range_query::SegTreeNode;
     ///
     /// let node = SegTreeNode(2);  // Left child of root
-    /// assert_eq!(node.node_right_bound(3), 4);  // Covers [0, 4)
+    /// assert_eq!(node.right_bound(3), 4);  // Covers [0, 4)
     /// ```
     #[inline]
-    pub fn node_right_bound(&self, max_depth: u32) -> usize {
+    pub fn right_bound(&self, max_depth: u32) -> usize {
         let depth = self.depth();
         let pos = self.0 - (1 << depth);
         (pos + 1) * (1 << (max_depth - depth))
     }
 
+    #[inline]
+    pub fn mid(&self, max_depth: u32) -> usize {
+        let depth = self.depth();
+        let pos = self.0 - (1 << depth);
+        let range = 1 << (max_depth - depth);
+        pos * range + range / 2
+    }
+
     /// Returns the range [left, right) that this node represents.
     ///
     /// # Parameters
-    /// - `max_depth`: The maximum depth of the tree
+    /// - `max_depth`: The maximum depth of the tree (depth of leaf nodes)
     ///
     /// # Examples
     ///
@@ -460,9 +504,9 @@ mod tests {
         let root = SegTreeNode(1);
         let max_depth = 3;
 
-        assert_eq!(root.node_size(max_depth), 8);
-        assert_eq!(root.node_left_bound(max_depth), 0);
-        assert_eq!(root.node_right_bound(max_depth), 8);
+        assert_eq!(root.size(max_depth), 8);
+        assert_eq!(root.left_bound(max_depth), 0);
+        assert_eq!(root.right_bound(max_depth), 8);
         assert_eq!(root.node_bounds(max_depth), (0, 8));
     }
 
