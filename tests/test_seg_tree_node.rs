@@ -8,16 +8,16 @@ mod comprehensive_tests {
 
     #[test]
     fn test_tree_navigation_various_depths() {
-        // Test navigation at different levels
+        // Test navigation at different depths
         let root = SegTreeNode(1);
 
-        // Level 1
+        // Depth 1
         let left_1 = root.left_child();
         let right_1 = root.right_child();
         assert_eq!(left_1.0, 2);
         assert_eq!(right_1.0, 3);
 
-        // Level 2
+        // Depth 2
         let left_2_left = left_1.left_child();
         let left_2_right = left_1.right_child();
         let right_2_left = right_1.left_child();
@@ -37,12 +37,12 @@ mod comprehensive_tests {
 
     #[test]
     fn test_sibling_relationships() {
-        // Test siblings across multiple levels
+        // Test siblings across multiple depths
         let pairs = [
-            (2, 3), // Level 1
-            (4, 5), // Level 2 left subtree
-            (6, 7), // Level 2 right subtree
-            (8, 9), // Level 3
+            (2, 3), // Depth 1
+            (4, 5), // Depth 2 left subtree
+            (6, 7), // Depth 2 right subtree
+            (8, 9), // Depth 3
             (10, 11),
             (12, 13),
             (14, 15),
@@ -62,15 +62,15 @@ mod comprehensive_tests {
     // ===== LEVEL AND BOUNDS TESTS =====
 
     #[test]
-    fn test_level_calculation_comprehensive() {
+    fn test_depth_calculation_comprehensive() {
         let test_cases = [
             (1, 0), // Root
             (2, 1),
-            (3, 1), // Level 1
+            (3, 1), // Depth 1
             (4, 2),
             (5, 2),
             (6, 2),
-            (7, 2), // Level 2
+            (7, 2), // Depth 2
             (8, 3),
             (9, 3),
             (10, 3),
@@ -78,21 +78,21 @@ mod comprehensive_tests {
             (12, 3),
             (13, 3),
             (14, 3),
-            (15, 3), // Level 3
+            (15, 3), // Depth 3
             (16, 4),
-            (31, 4), // Level 4
+            (31, 4), // Depth 4
             (32, 5),
-            (63, 5), // Level 5
+            (63, 5), // Depth 5
         ];
 
-        for (node_idx, expected_level) in test_cases {
+        for (node_idx, expected_depth) in test_cases {
             let node = SegTreeNode(node_idx);
             assert_eq!(
-                node.level(),
-                expected_level,
-                "Node {} should be at level {}",
+                node.depth(),
+                expected_depth,
+                "Node {} should be at depth {}",
                 node_idx,
-                expected_level
+                expected_depth
             );
         }
     }
@@ -107,11 +107,11 @@ mod comprehensive_tests {
             (1, 0, 8, 8), // Root covers [0, 8)
             (2, 0, 4, 4), // Left child covers [0, 4)
             (3, 4, 8, 4), // Right child covers [4, 8)
-            (4, 0, 2, 2), // Level 2 nodes
+            (4, 0, 2, 2), // Depth 2 nodes
             (5, 2, 4, 2),
             (6, 4, 6, 2),
             (7, 6, 8, 2),
-            (8, 0, 1, 1), // Level 3 nodes (leaves)
+            (8, 0, 1, 1), // Depth 3 nodes (leaves)
             (9, 1, 2, 1),
             (10, 2, 3, 1),
             (11, 3, 4, 1),
@@ -203,17 +203,17 @@ mod comprehensive_tests {
     fn test_lca_same_depth_various_cases() {
         let test_cases = [
             // (left_node, right_node, expected_lca)
-            (2, 3, 1),   // Adjacent siblings at level 1
-            (4, 5, 2),   // Adjacent siblings at level 2
-            (6, 7, 3),   // Adjacent siblings at level 2
-            (4, 6, 1),   // Different subtrees at level 2
-            (4, 7, 1),   // Different subtrees at level 2
-            (5, 6, 1),   // Different subtrees at level 2
-            (8, 9, 4),   // Adjacent siblings at level 3
-            (10, 11, 5), // Adjacent siblings at level 3
-            (8, 10, 2),  // Same grandparent at level 3
-            (8, 12, 1),  // Different subtrees at level 3
-            (9, 14, 1),  // Different subtrees at level 3
+            (2, 3, 1),   // Adjacent siblings at depth 1
+            (4, 5, 2),   // Adjacent siblings at depth 2
+            (6, 7, 3),   // Adjacent siblings at depth 2
+            (4, 6, 1),   // Different subtrees at depth 2
+            (4, 7, 1),   // Different subtrees at depth 2
+            (5, 6, 1),   // Different subtrees at depth 2
+            (8, 9, 4),   // Adjacent siblings at depth 3
+            (10, 11, 5), // Adjacent siblings at depth 3
+            (8, 10, 2),  // Same grandparent at depth 3
+            (8, 12, 1),  // Different subtrees at depth 3
+            (9, 14, 1),  // Different subtrees at depth 3
         ];
 
         for (left_idx, right_idx, expected_lca) in test_cases {
@@ -260,12 +260,12 @@ mod comprehensive_tests {
     fn test_lca_edge_cases() {
         // Same node
         let node = SegTreeNode(5);
-        let lca = SegTreeNode::get_lca_from_same_depth(node.clone(), node.clone());
+        let lca = SegTreeNode::get_lca_from_same_depth(node, node);
         assert_eq!(lca.0, 5);
 
         // Root with itself
         let root = SegTreeNode(1);
-        let lca = SegTreeNode::get_lca_from_same_depth(root.clone(), root.clone());
+        let lca = SegTreeNode::get_lca_from_same_depth(root, root);
         assert_eq!(lca.0, 1);
     }
 
@@ -391,19 +391,19 @@ mod comprehensive_tests {
             assert_eq!(sibling.sibling().0, node_idx);
         }
 
-        // Test that level calculation is consistent with tree structure
-        for level in 0..=5 {
-            let first_node_at_level = 1 << level;
-            let last_node_at_level = (1 << (level + 1)) - 1;
+        // Test that depth calculation is consistent with tree structure
+        for depth in 0..=5 {
+            let first_node_at_depth = 1 << depth;
+            let last_node_at_depth = (1 << (depth + 1)) - 1;
 
-            for node_idx in first_node_at_level..=last_node_at_level {
+            for node_idx in first_node_at_depth..=last_node_at_depth {
                 let node = SegTreeNode(node_idx);
                 assert_eq!(
-                    node.level(),
-                    level,
-                    "Node {} should be at level {}",
+                    node.depth(),
+                    depth,
+                    "Node {} should be at depth {}",
                     node_idx,
-                    level
+                    depth
                 );
             }
         }
