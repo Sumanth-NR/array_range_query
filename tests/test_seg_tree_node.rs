@@ -1,8 +1,6 @@
-use array_range_query::SegTreeNode;
-
 #[cfg(test)]
-mod comprehensive_tests {
-    use super::*;
+mod comprehensive_test_lazy_seg_tree_node {
+    use array_range_query::SegTreeNode;
 
     // ===== BASIC NAVIGATION TESTS =====
 
