@@ -91,12 +91,45 @@ use core::ops::RangeBounds;
 use core::cell::RefCell;
 use core::fmt::Display;
 
+/// Specification for lazy segment tree operations.
+///
+/// Defines the data type `T`, update type `U`, and three operations that must satisfy:
+/// - Data operation: associative with identity `ID`
+/// - Update composition: associative (for overlapping updates)
+/// - Update application: correctly accounts for range size
+///
+/// # Example
+/// ```rust
+/// use array_range_query::LazySegTreeSpec;
+///
+/// struct RangeAddSum;
+/// impl LazySegTreeSpec for RangeAddSum {
+///     type T = i64;
+///     type U = i64;
+///     const ID: Self::T = 0;
+///
+///     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
+///     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
+///     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+///         *d += u * size as i64;
+///     }
+/// }
+/// ```
 pub trait LazySegTreeSpec {
+    /// Data type stored in tree nodes.
     type T: Clone;
+    /// Update type for lazy propagation.
     type U: Clone;
+    /// Identity element for data aggregation.
     const ID: Self::T;
+
+    /// Combines two data values in-place (associative operation).
     fn op_on_data(d1: &mut Self::T, d2: &Self::T);
+
+    /// Composes two updates in-place (associative operation).
     fn op_on_update(u1: &mut Self::U, u2: &Self::U);
+
+    /// Applies update to data value, accounting for range size.
     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize);
 }
 
@@ -122,6 +155,13 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         (max_size, max_depth)
     }
 
+    /// Creates a new lazy segment tree with all values initialized to `Spec::ID`.
+    ///
+    /// # Time Complexity
+    /// O(n)
+    ///
+    /// # Panics
+    /// Panics if `size` is 0.
     pub fn new(size: usize) -> Self {
         let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         Self {
@@ -134,6 +174,13 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         }
     }
 
+    /// Creates a new lazy segment tree from a slice of values.
+    ///
+    /// # Time Complexity
+    /// O(n)
+    ///
+    /// # Panics
+    /// Panics if `values` is empty.
     pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
         let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
@@ -158,6 +205,13 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         }
     }
 
+    /// Creates a new lazy segment tree from a vector of values.
+    ///
+    /// # Time Complexity
+    /// O(n)
+    ///
+    /// # Panics
+    /// Panics if `values` is empty.
     pub fn from_vec(values: Vec<Spec::T>) -> Self {
         let size = values.len();
         let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
@@ -186,6 +240,21 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
     // ===== PUBLIC INTERFACE =====
 
+    /// Queries the aggregated value over the given range.
+    ///
+    /// # Example
+    /// ```
+    /// use array_range_query::helpers::LazySegTreeAddMax;
+    ///
+    /// let mut tree = LazySegTreeAddMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// assert_eq!(tree.query(0..=4), 5);
+    /// ```
+    ///
+    /// # Time Complexity
+    /// O(log n)
+    ///
+    /// # Panics
+    /// Panics if the range is invalid or out of bounds.
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
         let (left_inp, right_inp) = utils::parse_range(range, self.size);
         utils::validate_range(left_inp, right_inp, self.size);
@@ -224,6 +293,22 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         res
     }
 
+    /// Applies an update to all elements in the given range.
+    ///
+    /// # Example
+    /// ```
+    /// use array_range_query::helpers::LazySegTreeAddMax;
+    ///
+    /// let mut tree = LazySegTreeAddMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// tree.update(1..=3, 10);
+    /// assert_eq!(tree.query(..), 14);
+    /// ```
+    ///
+    /// # Time Complexity
+    /// O(log n)
+    ///
+    /// # Panics
+    /// Panics if the range is invalid or out of bounds.
     pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
         let (left_inp, right_inp) = utils::parse_range(range, self.size);
         utils::validate_range(left_inp, right_inp, self.size);

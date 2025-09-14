@@ -1,43 +1,11 @@
-//! Segment tree specialization for maximum operations.
+//! Segment tree for maximum operations.
 //!
-//! This module provides a convenient wrapper around the generic `SegTree`
-//! for maximum queries with an automatically chosen identity element.
-//!
-//! We use the `min_max_traits::Min` trait to obtain the minimum constant
-//! value of the type since the rust num_traits does not contain a trait for
-//! obtaining the minimum constant value.
-//!
-//! Implementation:
-//! ```rust
-//! use array_range_query::{SegTree, SegTreeSpec};
-//!
-//! // Define the max monoid
-//! struct MaxSpec;
-//! impl SegTreeSpec for MaxSpec {
-//!     type T = i32;
-//!     const ID: Self::T = i32::MIN;
-//!     fn op(a: &mut Self::T, b: &Self::T) { *a = (*a).max(*b); }
-//! }
-//!
-//! // Example 1: consume a Vec (cheap, O(1) to take ownership)
-//! let values_owned = vec![5, 2, 8, 1, 9, 3];
-//! let mut tree_owned = SegTree::<MaxSpec>::from_vec(values_owned);
-//! assert_eq!(tree_owned.query(..), 9);
-//!
-//! // Example 2: build from a slice (clones elements)
-//! let values = vec![5, 2, 8, 1, 9, 3];
-//! let tree_from_slice = SegTree::<MaxSpec>::from_slice(&values);
-//! assert_eq!(tree_from_slice.query(1..4), 8);
-//! ```
+//! Provides `SegTreeMax<T>` for efficient range maximum queries.
 use crate::{SegTree, SegTreeSpec};
 use core::marker::PhantomData;
 use min_max_traits::Min as ConstLowerBound;
 
-/// Specification for segment trees that perform maximum operations.
-///
-/// This spec works with any type `T` that implements ordering and provides a
-/// constant minimum value via the `min_max_traits::Min` trait. The identity
-/// element is set to the minimum constant of the type.
+/// Specification for maximum operations.
 pub struct SegTreeMaxSpec<T>(PhantomData<T>);
 
 impl<T> SegTreeSpec for SegTreeMaxSpec<T>
@@ -54,7 +22,7 @@ where
     }
 }
 
-/// Convenience alias: a `SegTree` specialized to perform maximum queries over `T`.
+/// Segment tree specialized for maximum operations.
 pub type SegTreeMax<T> = SegTree<SegTreeMaxSpec<T>>;
 
 #[cfg(test)]
