@@ -188,164 +188,143 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
         let (left_inp, right_inp) = utils::parse_range(range, self.size);
-        if left_inp >= right_inp {
+        utils::validate_range(left_inp, right_inp, self.size);
+        if left_inp == right_inp {
             return Spec::ID;
         }
 
-        let root = SegTreeNode(1);
-        let left = SegTreeNode(self.max_size + left_inp);
-        let right = SegTreeNode(self.max_size + right_inp);
+        let mut l = self.max_size + left_inp;
+        let mut r = self.max_size + right_inp;
 
-        let lca = SegTreeNode::get_lca_from_same_depth(left, right);
-        let left = left.get_left_binding_node();
-        let right = right.get_right_binding_node();
-
-        // Push nodes
-        self.push_nodes(root, left);
-        self.push_nodes(lca, right);
-
-        if left == lca && lca == right {
-            return self.data.borrow()[left.0].clone();
-        }
-
-        // We need to collect the results now
-
-        let data = self.data.borrow();
-
-        let mut cur = left;
-        let mut result: Spec::T;
-
-        // Adding the left part
-        result = data[if cur == lca {
-            cur.left_child().0
-        } else {
-            cur.0
-        }]
-        .clone();
-        while cur != lca {
-            if cur.is_left_child() {
-                Spec::op_on_data(&mut result, &data[cur.sibling().0]);
+        for i in (1..=self.max_depth).rev() {
+            // Checks if the node is not a left bound
+            if ((l >> i) << i) != l {
+                self.push_node(SegTreeNode(l >> i));
             }
-            cur = cur.parent();
-        }
-
-        // Adding the right part
-        if right == lca {
-            Spec::op_on_data(&mut result, &data[right.0]);
-        } else {
-            cur = right.right_child();
-        }
-        while cur.right_bound(self.max_depth) > right_inp {
-            if cur.mid(self.max_depth) <= right_inp {
-                Spec::op_on_data(&mut result, &data[cur.left_child().0]);
-                cur = cur.right_child();
-            } else {
-                cur = cur.left_child();
+            if ((r >> i) << i) != r {
+                self.push_node(SegTreeNode((r - 1) >> i));
             }
         }
 
-        result
+        let mut res = Spec::ID;
+
+        while l < r {
+            if l & 1 != 0 {
+                Spec::op_on_data(&mut res, &self.eval(SegTreeNode(l)));
+                l += 1;
+            }
+            if r & 1 != 0 {
+                r -= 1;
+                Spec::op_on_data(&mut res, &self.eval(SegTreeNode(r)));
+            }
+            l >>= 1;
+            r >>= 1;
+        }
+
+        res
     }
 
     pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
         let (left_inp, right_inp) = utils::parse_range(range, self.size);
-        if left_inp >= right_inp {
+        utils::validate_range(left_inp, right_inp, self.size);
+        if left_inp == right_inp {
             return;
         }
 
-        let root = SegTreeNode(1);
-        let left = SegTreeNode(self.max_size + left_inp);
-        let right = SegTreeNode(self.max_size + right_inp);
+        let mut l = self.max_size + left_inp;
+        let mut r = self.max_size + right_inp;
 
-        let lca = SegTreeNode::get_lca_from_same_depth(left, right);
-        let left = left.get_left_binding_node();
-        let right = right.get_right_binding_node();
-
-        // Push nodes
-        self.push_nodes(root, left);
-        self.push_nodes(lca, right);
-
-        if lca.is_leaf(self.max_depth) {
-            let data = self.data.get_mut();
-            Spec::op_update_on_data(&value, &mut data[lca.0], 1);
-            return;
-        }
-
-        if left == lca {
-            let tags = self.tags.get_mut();
-            Self::combine_tag_option(&mut tags[lca.left_child().0], &value);
-        } else {
-            let mut cur = left;
-            self.push_node(cur);
-            while cur != lca.left_child() {
-                if cur.is_left_child() {
-                    let tags = self.tags.get_mut();
-                    Self::combine_tag_option(&mut tags[cur.sibling().0], &value);
-                }
-                self.pull_node(cur);
-                cur = cur.parent();
+        for i in (1..=self.max_depth).rev() {
+            if ((l >> i) << i) != l {
+                self.push_node_mut(SegTreeNode(l >> i));
+            }
+            if ((r >> i) << i) != r {
+                self.push_node_mut(SegTreeNode((r - 1) >> i));
             }
         }
 
-        if right == lca {
-            let tags = self.tags.get_mut();
-            Self::combine_tag_option(&mut tags[lca.right_child().0], &value);
-        } else {
-            let mut cur = right;
-            self.push_node(cur);
-            while cur != lca.right_child() {
-                if cur.is_right_child() {
-                    let tags = self.tags.get_mut();
-                    Self::combine_tag_option(&mut tags[cur.sibling().0], &value);
-                }
-                self.pull_node(cur);
-                cur = cur.parent();
+        let l0 = l;
+        let r0 = r;
+
+        while l < r {
+            if l & 1 != 0 {
+                Self::combine_tag_option(&mut self.tags.get_mut()[l], &value);
+                l += 1;
             }
+            if r & 1 != 0 {
+                r -= 1;
+                Self::combine_tag_option(&mut self.tags.get_mut()[r], &value);
+            }
+            l >>= 1;
+            r >>= 1;
         }
 
-        let mut cur = lca;
-        while lca != root {
-            self.pull_node(cur);
-            cur = cur.parent();
+        for i in 1..=self.max_depth {
+            if ((l0 >> i) << i) != l0 {
+                self.pull_node(SegTreeNode(l0 >> i));
+            }
+            if ((r0 >> i) << i) != r0 {
+                self.pull_node(SegTreeNode((r0 - 1) >> i));
+            }
         }
     }
 
     // ===== PRIVATE HELPER METHODS =====
 
     fn pull_node(&mut self, node: SegTreeNode) {
-        self.push_node(node.sibling());
-        let node = node.parent();
-
-        let mut data = self.data.borrow_mut();
-        data[node.0] = data[node.left_child().0].clone();
-        let right_data = data[node.right_child().0].clone();
-        Spec::op_on_data(&mut data[node.0], &right_data);
-    }
-
-    fn push_nodes(&self, mut root: SegTreeNode, node: SegTreeNode) {
-        while root != node && !root.is_leaf(self.max_depth) {
-            self.push_node(root);
-            if root.right_bound(self.max_depth) <= node.mid(self.max_depth) {
-                root = root.right_child();
-            } else {
-                root = root.left_child();
-            }
+        if node.is_leaf(self.max_depth) {
+            return;
         }
+        let mut res = self.eval_mut(node.left_child());
+        let right_val = self.eval_mut(node.right_child());
+        Spec::op_on_data(&mut res, &right_val);
+        self.data.get_mut()[node.0] = res;
     }
 
-    /// Push a pending tag down
+    fn eval(&self, node: SegTreeNode) -> Spec::T {
+        let data = self.data.borrow();
+        let tags = self.tags.borrow();
+        let mut d = data[node.0].clone();
+        if let Some(tag) = &tags[node.0] {
+            Spec::op_update_on_data(tag, &mut d, node.size(self.max_depth));
+        }
+        d
+    }
+
+    fn eval_mut(&mut self, node: SegTreeNode) -> Spec::T {
+        let tag = self.tags.get_mut()[node.0].clone();
+        let mut d = self.data.get_mut()[node.0].clone();
+        if let Some(tag) = &tag {
+            Spec::op_update_on_data(tag, &mut d, node.size(self.max_depth));
+        }
+        d
+    }
+
+    /// Pushes the tag of the current node to its children after consuming it.
     #[inline]
     fn push_node(&self, node: SegTreeNode) {
         let mut tags = self.tags.borrow_mut();
         if let Some(tag) = tags[node.0].take() {
             let mut data = self.data.borrow_mut();
             Spec::op_update_on_data(&tag, &mut data[node.0], node.size(self.max_depth));
-            if node.left_child().is_leaf(self.max_depth) {
-                Spec::op_update_on_data(&tag, &mut data[node.left_child().0], 1);
-                Spec::op_update_on_data(&tag, &mut data[node.right_child().0], 1);
-            } else {
+            if !node.is_leaf(self.max_depth) {
                 Self::combine_tag_option(&mut tags[node.left_child().0], &tag);
                 Self::combine_tag_option(&mut tags[node.right_child().0], &tag);
+            }
+        }
+    }
+
+    #[inline]
+    fn push_node_mut(&mut self, node: SegTreeNode) {
+        if let Some(tag) = self.tags.get_mut()[node.0].take() {
+            let node_size = node.size(self.max_depth);
+            Spec::op_update_on_data(&tag, &mut self.data.get_mut()[node.0], node_size);
+            if !node.is_leaf(self.max_depth) {
+                let left_child_idx = node.left_child().0;
+                let right_child_idx = node.right_child().0;
+                let tags = self.tags.get_mut();
+                Self::combine_tag_option(&mut tags[left_child_idx], &tag);
+                Self::combine_tag_option(&mut tags[right_child_idx], &tag);
             }
         }
     }
