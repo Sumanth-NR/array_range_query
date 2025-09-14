@@ -10,8 +10,8 @@ The implementation is deliberately generic and configurable via the
 `LazySegTreeSpec` trait. The trait allows you to define:
 - the stored value type `T` and the lazy-update type `U`,
 - how two values `T` are combined (aggregation),
-- how two updates `U` are composed, and
-- how a lazy update affects a node's stored aggregate (taking into account
+- how two updates `U` are composed,
+- and how a lazy update affects a node's stored aggregate (taking into account
   the number of leaves covered by that node).
 
 ## Design notes
@@ -113,12 +113,17 @@ pub struct LazySegTree<Spec: LazySegTreeSpec> {
 impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     // ===== CONSTRUCTORS =====
 
-    pub fn new(size: usize) -> Self {
+    fn size_to_max_size_and_depth(size: usize) -> (usize, u32) {
         if size == 0 {
-            panic!("LazySegTree::new: size must be positive");
+            panic!("LazySegTree must have a positive size");
         }
         let max_size = size.next_power_of_two();
         let max_depth = max_size.trailing_zeros();
+        (max_size, max_depth)
+    }
+
+    pub fn new(size: usize) -> Self {
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         Self {
             size,
             max_size,
@@ -130,12 +135,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     }
 
     pub fn from_slice(values: &[Spec::T]) -> Self {
-        if values.is_empty() {
-            panic!("LazySegTree::from_slice: empty slice");
-        }
         let size = values.len();
-        let max_size = size.next_power_of_two();
-        let max_depth = max_size.trailing_zeros();
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         let mut data = vec![Spec::ID; max_size * 2];
 
         if size > 0 {
@@ -158,12 +159,8 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     }
 
     pub fn from_vec(values: Vec<Spec::T>) -> Self {
-        if values.is_empty() {
-            panic!("LazySegTree::from_vec: empty vector");
-        }
         let size = values.len();
-        let max_size = size.next_power_of_two();
-        let max_depth = max_size.trailing_zeros();
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         let mut data = vec![Spec::ID; max_size * 2];
 
         if size > 0 {
