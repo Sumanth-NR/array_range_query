@@ -1,148 +1,57 @@
-//! A generic, reusable Segment Tree implementation.
+//! Segment tree for efficient range queries and point updates.
 //!
-//! This module provides a `SegTree` data structure, which is useful for efficient
-//! range queries on a sequence of elements. A segment tree can answer queries
-//! for any associative operation (like summation, minimum, maximum) on a range
-//! in `O(log n)` time. Point updates are also supported in `O(log n)` time.
+//! A segment tree supports range queries and point updates in O(log n) time
+//! for any associative operation. Define operations by implementing [`SegTreeSpec`].
 //!
-//! ## Overview
-//!
-//! A segment tree is a binary tree data structure that allows efficient range queries
-//! and point updates on an array. Each leaf represents an element of the array, and
-//! each internal node represents the result of applying an associative operation
-//! to its children.
-//!
-//! ## Design
-//!
-//! The implementation follows a common Rust design pattern that separates the generic
-//! data structure logic from the specific user-defined operation:
-//!
-//! - [`SegTree<Spec>`]: The generic segment tree struct. It handles the tree structure,
-//!   indexing, and the query/update algorithms.
-//! - [`SegTreeSpec`]: A trait that you implement to define the behavior of the
-//!   segment tree. It specifies the element type and the associative binary operation
-//!   (a "monoid").
-//!
-//! ## Key Properties
-//!
-//! - **Time Complexity**: O(log n) for both queries and updates
-//! - **Space Complexity**: O(n)
-//! - **Generic**: Works with any associative operation
-//! - **Memory Efficient**: Uses a flat array representation
-//!
-//! ## Example
-//!
-//! Here is how to create a segment tree for range sum queries:
+//! # Example
 //!
 //! ```rust
 //! use array_range_query::{SegTree, SegTreeSpec};
 //!
-//! // 1. Define a struct to represent your operation
 //! struct SumSpec;
-//!
-//! // 2. Implement the `SegTreeSpec` trait for it
 //! impl SegTreeSpec for SumSpec {
-//!     // The type of the elements in the tree
 //!     type T = i64;
-//!
-//!     // The identity element for the operation (0 for addition)
 //!     const ID: Self::T = 0;
-//!
-//!     // The associative binary operation, performed in-place
-//!     fn op(a: &mut Self::T, b: &Self::T) {
-//!         *a += *b;
-//!     }
+//!     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
 //! }
 //!
-//! // 3. Create the segment tree with your spec
 //! let values = vec![1, 2, 3, 4, 5];
-//! let mut seg_tree = SegTree::<SumSpec>::from_slice(&values);
-//!
-//! // Query the sum of the range [2, 5) -> sum of elements at indices 2, 3, and 4
-//! assert_eq!(seg_tree.query(2..5), 12);
-//! assert_eq!(seg_tree.query(..), 15);
-//!
-//! // 4. Update a value and see the query result change
-//! seg_tree.update(3, 10); // Set the element at index 3 to 10
-//! assert_eq!(seg_tree.query(..), 21);
+//! let mut tree = SegTree::<SumSpec>::from_slice(&values);
+//! assert_eq!(tree.query(2..5), 12); // sum of indices 2, 3, 4
+//! tree.update(3, 10);
+//! assert_eq!(tree.query(..), 21);
 //! ```
 
 use crate::utils;
 use core::marker::PhantomData;
 use core::ops::RangeBounds;
 
-/// Defines the monoid operation and element type for a `SegTree`.
+/// Specification for segment tree operations.
 ///
-/// A "monoid" in abstract algebra is a set equipped with an associative binary operation
-/// and an identity element. This trait encapsulates that mathematical structure,
-/// allowing `SegTree` to be generic over any valid monoid.
+/// Defines an associative operation (monoid) with identity element.
+/// Must satisfy: `op(a, ID) = a` and `op(a, op(b, c)) = op(op(a, b), c)`.
 ///
-/// # Requirements
-///
-/// The implementing type must satisfy the monoid laws:
-/// - **Identity**: For any element `a`, `op(a, ID) = a` and `op(ID, a) = a`
-/// - **Associativity**: `op(a, op(b, c)) = op(op(a, b), c)`
-///
-/// # Examples
-///
-/// ## Sum Monoid
-/// ```
+/// # Example
+/// ```rust
 /// use array_range_query::SegTreeSpec;
 ///
 /// struct SumSpec;
 /// impl SegTreeSpec for SumSpec {
 ///     type T = i32;
-///     const ID: Self::T = 0;  // 0 is the identity for addition
-///
-///     fn op(a: &mut Self::T, b: &Self::T) {
-///         *a += *b;
-///     }
-/// }
-/// ```
-///
-/// ## Min Monoid
-/// ```
-/// use array_range_query::SegTreeSpec;
-///
-/// struct MinSpec;
-/// impl SegTreeSpec for MinSpec {
-///     type T = i32;
-///     const ID: Self::T = i32::MAX;  // MAX is the identity for min
-///
-///     fn op(a: &mut Self::T, b: &Self::T) {
-///         if *a > *b {
-///             *a = *b;
-///         }
-///     }
+///     const ID: Self::T = 0;
+///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
 /// }
 /// ```
 pub trait SegTreeSpec {
-    /// The type of the elements stored and operated on in the segment tree.
-    ///
-    /// This type must implement `Clone` to allow efficient copying during tree operations.
+    /// Element type stored in the segment tree.
     type T: Clone;
 
-    /// The identity element for the monoid operation `op`.
-    ///
-    /// This element must satisfy the identity property: for any element `a` of type `T`,
-    /// `op(a, ID)` must equal `a`. Common examples:
-    /// - `0` for addition
-    /// - `1` for multiplication
-    /// - `i32::MIN` for maximum operations
-    /// - `i32::MAX` for minimum operations
+    /// Identity element for the operation.
     const ID: Self::T;
 
-    /// The associative binary operation of the monoid, performed in-place.
+    /// Associative binary operation, performed in-place.
     ///
-    /// This operation must be associative: `op(a, op(b, c))` must be equal
-    /// to `op(op(a, b), c)` for all valid inputs.
-    ///
-    /// The operation mutates the first parameter `a` to store the result
-    /// of combining `a` with `b`.
-    ///
-    /// # Parameters
-    /// - `a`: The left operand (modified in-place to store the result)
-    /// - `b`: The right operand (read-only)
+    /// Modifies `a` to store the result of combining `a` with `b`.
     fn op(a: &mut Self::T, b: &Self::T);
 }
 
@@ -193,29 +102,10 @@ pub struct SegTree<Spec: SegTreeSpec> {
 impl<Spec: SegTreeSpec> SegTree<Spec> {
     // ===== CONSTRUCTORS =====
 
-    /// Creates a new `SegTree` of a given `size`, initialized with identity elements.
-    ///
-    /// All elements in the tree are initialized to `Spec::ID`. The internal tree size
-    /// (`max_size`) will be the smallest power of two greater than or equal to `size`
-    /// for optimal tree structure and performance.
+    /// Creates a new segment tree with all elements initialized to `Spec::ID`.
     ///
     /// # Time Complexity
-    /// O(n) where n is the smallest power of two ≥ `size`.
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{SegTree, SegTreeSpec};
-    ///
-    /// struct SumSpec;
-    /// impl SegTreeSpec for SumSpec {
-    ///     type T = i64;
-    ///     const ID: Self::T = 0;
-    ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-    /// }
-    ///
-    /// let tree = SegTree::<SumSpec>::new(100);
-    /// assert_eq!(tree.query(..), 0); // All elements are 0 (identity)
-    /// ```
+    /// O(n)
     pub fn new(size: usize) -> Self {
         let max_size = size.next_power_of_two();
         Self {
@@ -226,31 +116,10 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         }
     }
 
-    /// Creates a new `SegTree` from a slice of initial values.
-    ///
-    /// The tree is built in O(n) time using a bottom-up approach, which is more
-    /// efficient than creating an empty tree and updating each element individually.
-    /// This is the recommended way to initialize a segment tree with known values.
+    /// Creates a new segment tree from a slice of values.
     ///
     /// # Time Complexity
-    /// O(n) where n is the length of `values`.
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{SegTree, SegTreeSpec};
-    ///
-    /// struct SumSpec;
-    /// impl SegTreeSpec for SumSpec {
-    ///     type T = i64;
-    ///     const ID: Self::T = 0;
-    ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-    /// }
-    ///
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_slice(&values);
-    /// assert_eq!(tree.query(..), 15); // Sum of all elements
-    /// assert_eq!(tree.query(1..4), 9); // Sum of elements [2, 3, 4]
-    /// ```
+    /// O(n)
     pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
         let max_size = size.next_power_of_two();
@@ -274,31 +143,10 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         }
     }
 
-    /// Creates a new `SegTree` from a vector of initial values
-    ///
-    /// The tree is built in O(n) time using a bottom-up approach, which is more
-    /// efficient than creating an empty tree and updating each element individually.
-    /// This is the recommended way to initialize a segment tree with known values.
+    /// Creates a new segment tree from a vector of values.
     ///
     /// # Time Complexity
-    /// O(n) where n is the length of `values`.
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{SegTree, SegTreeSpec};
-    ///
-    /// struct SumSpec;
-    /// impl SegTreeSpec for SumSpec {
-    ///     type T = i64;
-    ///     const ID: Self::T = 0;
-    ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-    /// }
-    ///
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_vec(values);
-    /// assert_eq!(tree.query(..), 15); // Sum of all elements
-    /// assert_eq!(tree.query(1..4), 9); // Sum of elements [2, 3, 4]
-    /// ```
+    /// O(n)
     pub fn from_vec(vec: Vec<Spec::T>) -> Self {
         let size = vec.len();
         let max_size = size.next_power_of_two();
@@ -327,39 +175,22 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
 
     // ===== PUBLIC INTERFACE =====
 
-    /// Queries the segment tree for the aggregated value in the given `range`.
+    /// Queries the aggregated value over the given range.
     ///
-    /// Returns the result of applying the monoid operation across all elements
-    /// in the specified range. The range can be any type that implements
-    /// `RangeBounds<usize>`, such as `a..b`, `a..=b`, `..b`, `a..`, or `..`.
+    /// # Example
+    ///
+    /// ```
+    /// use array_range_query::helpers::SegTreeMax;
+    ///
+    /// let mut tree = SegTreeMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// assert_eq!(tree.query(..), 5);
+    /// ```
     ///
     /// # Time Complexity
     /// O(log n)
     ///
     /// # Panics
-    /// - If the start of the range is greater than the end
-    /// - If the end of the range is out of bounds (> `self.size`)
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{SegTree, SegTreeSpec};
-    ///
-    /// struct SumSpec;
-    /// impl SegTreeSpec for SumSpec {
-    ///     type T = i64;
-    ///     const ID: Self::T = 0;
-    ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-    /// }
-    ///
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = SegTree::<SumSpec>::from_slice(&values);
-    ///
-    /// assert_eq!(tree.query(..), 15);      // All elements: 1+2+3+4+5
-    /// assert_eq!(tree.query(1..4), 9);     // Elements [1,4): 2+3+4
-    /// assert_eq!(tree.query(2..=4), 12);   // Elements [2,4]: 3+4+5
-    /// assert_eq!(tree.query(..3), 6);      // Elements [0,3): 1+2+3
-    /// assert_eq!(tree.query(2..), 12);     // Elements [2,∞): 3+4+5
-    /// ```
+    /// Panics if the range is invalid or out of bounds.
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
         let (left, right) = utils::parse_range(range, self.size);
         utils::validate_range(left, right, self.size);
@@ -398,38 +229,24 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
         result_left
     }
 
-    /// Performs a point update, replacing the value at `index` with a new `value`.
+    /// Updates the value at the given index.
     ///
-    /// After updating the leaf node, the change is propagated up the tree by
-    /// recalculating all ancestor nodes. This maintains the tree invariant that
-    /// each internal node contains the aggregate of its subtree.
+    /// # Example
+    ///
+    /// ```
+    /// use array_range_query::helpers::SegTreeMax;
+    ///
+    /// let mut tree = SegTreeMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// assert_eq!(tree.query(..), 5);
+    /// tree.update(2, 6);
+    /// assert_eq!(tree.query(..), 6);
+    /// ```
     ///
     /// # Time Complexity
     /// O(log n)
     ///
     /// # Panics
-    /// Panics if `index >= self.size` (index out of bounds).
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{SegTree, SegTreeSpec};
-    ///
-    /// struct SumSpec;
-    /// impl SegTreeSpec for SumSpec {
-    ///     type T = i64;
-    ///     const ID: Self::T = 0;
-    ///     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-    /// }
-    ///
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let mut tree = SegTree::<SumSpec>::from_vec(values);
-    ///
-    /// assert_eq!(tree.query(..), 15);  // Original sum
-    ///
-    /// tree.update(2, 10);              // Change 3 to 10
-    /// assert_eq!(tree.query(..), 22);  // New sum: 1+2+10+4+5
-    /// assert_eq!(tree.query(2..3), 10); // Just the updated element
-    /// ```
+    /// Panics if `index` is out of bounds.
     pub fn update(&mut self, index: usize, value: Spec::T) {
         assert!(index < self.size, "update index out of bounds");
 
@@ -440,14 +257,7 @@ impl<Spec: SegTreeSpec> SegTree<Spec> {
 
     // ===== PRIVATE HELPER METHODS =====
 
-    /// Private helper to recompute parent nodes from a leaf up to the root.
-    ///
-    /// Starting from the given `index` (which should be a leaf node), this method
-    /// walks up the tree to the root, updating each parent node by combining
-    /// the values of its two children using the monoid operation.
-    ///
-    /// # Parameters
-    /// - `index`: The leaf index in the `data` vector (should be >= `max_size`)
+    /// Recomputes parent nodes from a leaf up to the root.
     fn recompute(&mut self, mut index: usize) {
         // Move up the tree level by level
         while index > 1 {

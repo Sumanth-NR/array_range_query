@@ -1,225 +1,134 @@
-/*!
-Lazy Segment Tree (range-update, range-query) — generic implementation.
+//! Lazy segment tree for efficient range updates and range queries.
+//!
+//! A lazy segment tree supports both range updates and range queries in O(log n) time
+//! using lazy propagation. Define operations by implementing [`LazySegTreeSpec`].
+//!
+//! # Example
+//!
+//! ```rust
+//! use array_range_query::{LazySegTree, LazySegTreeSpec};
+//!
+//! struct RangeAddSum;
+//! impl LazySegTreeSpec for RangeAddSum {
+//!     type T = i64;
+//!     type U = i64;
+//!     const ID: Self::T = 0;
+//!
+//!     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
+//!     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
+//!     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+//!         *d += u * size as i64;
+//!     }
+//! }
+//!
+//! let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1,2,3,4,5]);
+//! assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
+//! tree.update(1..4, 10); // add 10 to indices 1..4
+//! assert_eq!(tree.query(..), 45);
+//! ```
 
-## Overview
-
-This module implements a generic lazy segment tree: a binary tree stored in
-an array that supports efficient range updates and range queries.
-
-The implementation is deliberately generic and configurable via the
-`LazySegTreeSpec` trait. The trait allows you to define:
-- the stored value type `T` and the lazy-update type `U`,
-- how two values `T` are combined (aggregation),
-- how two updates `U` are composed, and
-- how a lazy update affects a node's stored aggregate (taking into account
-  the number of leaves covered by that node).
-
-## Design notes
-
-- API distinction between read and write:
-  - `query(&self, ...)` is provided as `&self`. Internally it uses
-    `RefCell` to push lazy tags while preserving a read-only public API.
-  - `update(&mut self, ...)` requires `&mut self` and uses direct mutable
-    access to the internal buffers for better performance and simpler
-    borrowing semantics.
-
-- Storage layout:
-  - A complete binary tree is stored in a `Box<[]>` (a boxed slice) using
-    1-based indexing (i.e. root at index `1`). The number of leaves is `max_size`,
-    the next power of two >= logical `size`. Total storage uses `max_size * 2` slots.
-
-- Ranges are half-open: `[left, right)`. This is consistent across
-  `query` and `update`.
-
-## Usage summary
-
-1. Implement `LazySegTreeSpec` for your problem domain (range add / range
-   sum, range assign / range min, etc.).
-2. Construct a tree:
-   - `LazySegTree::new(size)` creates a tree with all values set to `Spec::ID`.
-   - `LazySegTree::from_vec(values)` builds the tree from an initial slice.
-3. Use `query` and `update` to perform operations. `query` will return the
-   aggregate over a half-open interval, and `update` will apply a lazy
-   update to every element in the interval.
-
-## Example (Range Add + Range Sum)
-
-```rust
-use array_range_query::{LazySegTree, LazySegTreeSpec};
-
-struct RangeAddSum;
-
-impl LazySegTreeSpec for RangeAddSum {
-    type T = i64;
-    type U = i64;
-    const ID: Self::T = 0;
-
-    fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
-        *d1 += *d2;
-    }
-
-    fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
-        *u1 += *u2;
-    }
-
-    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
-        *d += u * size as i64;
-    }
-}
-
-let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1,2,3,4,5]);
-assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
-tree.update(1..4, 10); // add 10 to indices 1..4
-assert_eq!(tree.query(..), 45);
-```
-
-## Panics and safety
-
-- `validate_range` asserts that `left <= right` and `right <= size`. If the
-  caller violates these preconditions the library panics with a helpful
-  message.
-- Because `query(&self, ..)` uses interior mutability (`RefCell`), a
-  runtime panic will occur if external code causes conflicting borrows that
-  violate `RefCell` rules. Typical use does not trigger this, but it is a
-  potential runtime failure mode to be aware of.
-*/
-
-use crate::utils;
+use crate::{utils, SegTreeNode};
 use core::marker::PhantomData;
 use core::ops::RangeBounds;
 
 use core::cell::RefCell;
 use core::fmt::Display;
 
-/// Specification trait for `LazySegTree`.
+/// Specification for lazy segment tree operations.
 ///
-/// Implement this trait to define the concrete behavior of the tree:
-/// - `T`: data stored in nodes (the aggregate type),
-/// - `U`: lazy-update type (the tag type),
-/// - `ID`: identity element for `T`.
+/// Defines the data type `T`, update type `U`, and three operations that must satisfy:
+/// - Data operation: associative with identity `ID`
+/// - Update composition: associative (for overlapping updates)
+/// - Update application: correctly accounts for range size
 ///
-/// Required operations:
-/// - `op_on_data`          — combine two `T`s into one (e.g., sum or min),
-/// - `op_on_update`        — compose two updates `U` into a single update,
-/// - `op_update_on_data`   — apply an update `U` to `T` representing `size` leaves.
+/// # Example
+/// ```rust
+/// use array_range_query::LazySegTreeSpec;
+///
+/// struct RangeAddSum;
+/// impl LazySegTreeSpec for RangeAddSum {
+///     type T = i64;
+///     type U = i64;
+///     const ID: Self::T = 0;
+///
+///     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
+///     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
+///     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+///         *d += u * size as i64;
+///     }
+/// }
+/// ```
 pub trait LazySegTreeSpec {
-    /// The type of elements stored and operated on in the tree nodes.
+    /// Data type stored in tree nodes.
     type T: Clone;
-
-    /// The type of lazy updates applied to ranges.
+    /// Update type for lazy propagation.
     type U: Clone;
-
-    /// Identity element for `T`.
-    ///
-    /// This is the neutral element for the `op_on_data` operation.
-    /// For sum operations, this would be 0; for min operations, this would be the maximum value.
+    /// Identity element for data aggregation.
     const ID: Self::T;
 
-    /// Combine two child values into a parent value, performed in-place.
-    ///
-    /// This operation must be associative. Mutates `d1` to be the result of combining
-    /// `d1` with `d2`. For example, for range sum queries: `*d1 += *d2`.
+    /// Combines two data values in-place (associative operation).
     fn op_on_data(d1: &mut Self::T, d2: &Self::T);
 
-    /// Compose two updates, performed in-place.
-    ///
-    /// If update `u1` is applied before `u2`, then the composed update should be
-    /// the result of `op_on_update(u1, u2)`. This operation must be associative.
-    /// Mutates `u1` to be the result of the composition.
+    /// Composes two updates in-place (associative operation).
     fn op_on_update(u1: &mut Self::U, u2: &Self::U);
 
-    /// Apply an update `u` to a node's stored aggregate `d` which represents `size` leaves.
-    ///
-    /// This operation is performed in-place and mutates `d` to be the result.
-    /// For example, for range-add + range-sum: `*d += u * size`.
+    /// Applies update to data value, accounting for range size.
     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize);
 }
 
-/// Generic lazy segment tree.
-///
-/// The tree stores aggregates of type `Spec::T` and lazy tags of `Spec::U`.
-/// Supports efficient range queries and range updates in O(log n) time.
-///
-/// # Type Parameters
-///
-/// * `Spec` - A type implementing `LazySegTreeSpec` that defines the operations
 #[derive(Clone, Debug)]
 pub struct LazySegTree<Spec: LazySegTreeSpec> {
-    /// The logical size of the array (as provided by the user)
     size: usize,
-    /// The number of leaf nodes in the internal tree (next power of 2 >= size)
     max_size: usize,
-    /// Tree data stored as a flat boxed slice with 1-based indexing
+    max_depth: u32,
     data: RefCell<Box<[Spec::T]>>,
-    /// Lazy propagation tags for pending updates
     tags: RefCell<Box<[Option<Spec::U>]>>,
-    /// Zero-sized marker to associate the `Spec` type with the struct
     _spec: PhantomData<Spec>,
 }
 
 impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
     // ===== CONSTRUCTORS =====
 
-    /// Create a new tree of `size` elements, all initialized to `Spec::ID`.
-    ///
-    /// The internal tree size (`max_size`) will be the next power of two
-    /// greater than or equal to `size` for efficient tree operations.
+    fn size_to_max_size_and_depth(size: usize) -> (usize, u32) {
+        if size == 0 {
+            panic!("LazySegTree must have a positive size");
+        }
+        let max_size = size.next_power_of_two();
+        let max_depth = max_size.trailing_zeros();
+        (max_size, max_depth)
+    }
+
+    /// Creates a new lazy segment tree with all values initialized to `Spec::ID`.
     ///
     /// # Time Complexity
-    /// O(n) where n is the next power of two >= `size`.
+    /// O(n)
     ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
-    /// # struct RangeAddSum;
-    /// # impl LazySegTreeSpec for RangeAddSum {
-    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
-    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
-    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
-    /// # }
-    /// let tree = LazySegTree::<RangeAddSum>::new(100);
-    /// assert_eq!(tree.query(..), 0); // All elements start as identity (0)
-    /// ```
+    /// # Panics
+    /// Panics if `size` is 0.
     pub fn new(size: usize) -> Self {
-        let max_size = size.next_power_of_two();
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         Self {
             size,
             max_size,
+            max_depth,
             data: RefCell::new(vec![Spec::ID; max_size * 2].into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
         }
     }
 
-    /// Build a tree from a slice of initial values.
-    ///
-    /// The tree is constructed bottom-up in O(n) time, which is more efficient
-    /// than creating an empty tree and updating each element individually.
+    /// Creates a new lazy segment tree from a slice of values.
     ///
     /// # Time Complexity
-    /// O(n) where n is the length of `values`.
+    /// O(n)
     ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
-    /// # struct RangeAddSum;
-    /// # impl LazySegTreeSpec for RangeAddSum {
-    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
-    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
-    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
-    /// # }
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = LazySegTree::<RangeAddSum>::from_slice(&values);
-    /// assert_eq!(tree.query(..), 15); // Sum of all elements
-    /// ```
+    /// # Panics
+    /// Panics if `values` is empty.
     pub fn from_slice(values: &[Spec::T]) -> Self {
         let size = values.len();
-        let max_size = size.next_power_of_two();
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         let mut data = vec![Spec::ID; max_size * 2];
 
-        // Copy leaves and build internal nodes bottom-up
         if size > 0 {
             data[max_size..(max_size + size)].clone_from_slice(values);
             for i in (1..max_size).rev() {
@@ -231,6 +140,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
         Self {
             size,
+            max_depth,
             max_size,
             data: RefCell::new(data.into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
@@ -238,40 +148,22 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         }
     }
 
-    /// Creates a new `LazySegTree` from a vector of initial values.
-    ///
-    /// The tree is built in O(n) time using a bottom-up approach, which is more
-    /// efficient than creating an empty tree and updating each element individually.
-    /// This is the recommended way to initialize a segment tree with known values.
+    /// Creates a new lazy segment tree from a vector of values.
     ///
     /// # Time Complexity
-    /// O(n) where n is the length of `values`.
+    /// O(n)
     ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
-    /// # struct RangeAddSum;
-    /// # impl LazySegTreeSpec for RangeAddSum {
-    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
-    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
-    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
-    /// # }
-    /// let values = vec![1, 2, 3, 4, 5];
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(values);
-    /// assert_eq!(tree.query(..), 15); // Sum of all elements
-    /// ```
+    /// # Panics
+    /// Panics if `values` is empty.
     pub fn from_vec(values: Vec<Spec::T>) -> Self {
         let size = values.len();
-        let max_size = size.next_power_of_two();
+        let (max_size, max_depth) = Self::size_to_max_size_and_depth(size);
         let mut data = vec![Spec::ID; max_size * 2];
 
-        // Move owned values directly into the leaf slots to avoid cloning
         if size > 0 {
             for (i, v) in values.into_iter().enumerate() {
                 data[max_size + i] = v;
             }
-            // Build internal nodes bottom-up
             for i in (1..max_size).rev() {
                 let mut v = data[i * 2].clone();
                 Spec::op_on_data(&mut v, &data[i * 2 + 1]);
@@ -282,6 +174,7 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
         Self {
             size,
             max_size,
+            max_depth,
             data: RefCell::new(data.into_boxed_slice()),
             tags: RefCell::new(vec![None; max_size * 2].into_boxed_slice()),
             _spec: PhantomData,
@@ -290,85 +183,181 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
 
     // ===== PUBLIC INTERFACE =====
 
-    /// Query the range specified by `range`.
+    /// Queries the aggregated value over the given range.
     ///
-    /// Returns the aggregate value over the specified range using the `op_on_data` operation.
-    /// The range can be any type that implements `RangeBounds<usize>`, such as
-    /// `a..b`, `a..=b`, `..b`, `a..`, or `..`.
+    /// # Example
+    /// ```
+    /// use array_range_query::helpers::LazySegTreeAddMax;
+    ///
+    /// let mut tree = LazySegTreeAddMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// assert_eq!(tree.query(0..=4), 5);
+    /// ```
     ///
     /// # Time Complexity
     /// O(log n)
     ///
     /// # Panics
-    /// Panics if the range is invalid (start > end) or out of bounds.
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
-    /// # struct RangeAddSum;
-    /// # impl LazySegTreeSpec for RangeAddSum {
-    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
-    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
-    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
-    /// # }
-    /// let tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
-    /// assert_eq!(tree.query(1..4), 9);  // Sum of elements [2, 3, 4]
-    /// assert_eq!(tree.query(..), 15);   // Sum of all elements
-    /// ```
+    /// Panics if the range is invalid or out of bounds.
     pub fn query<R: RangeBounds<usize>>(&self, range: R) -> Spec::T {
-        let (left, right) = utils::parse_range(range, self.size);
-        utils::validate_range(left, right, self.size);
-
-        if left == right {
+        let (left_inp, right_inp) = utils::parse_range(range, self.size);
+        utils::validate_range(left_inp, right_inp, self.size);
+        if left_inp == right_inp {
             return Spec::ID;
         }
 
-        self.query_internal(1, 0, left, right, self.max_size)
+        let mut l = self.max_size + left_inp;
+        let mut r = self.max_size + right_inp;
+
+        for i in (1..=self.max_depth).rev() {
+            // Checks if the node is not a left bound
+            if ((l >> i) << i) != l {
+                self.push_node(SegTreeNode(l >> i));
+            }
+            if ((r >> i) << i) != r {
+                self.push_node(SegTreeNode((r - 1) >> i));
+            }
+        }
+
+        let mut res = Spec::ID;
+
+        while l < r {
+            if l & 1 != 0 {
+                Spec::op_on_data(&mut res, &self.eval(SegTreeNode(l)));
+                l += 1;
+            }
+            if r & 1 != 0 {
+                r -= 1;
+                Spec::op_on_data(&mut res, &self.eval(SegTreeNode(r)));
+            }
+            l >>= 1;
+            r >>= 1;
+        }
+
+        res
     }
 
-    /// Apply `value` lazily to the range specified by `range`.
+    /// Applies an update to all elements in the given range.
     ///
-    /// Updates all elements in the specified range by applying the given update value.
-    /// The range can be any type that implements `RangeBounds<usize>`.
+    /// # Example
+    /// ```
+    /// use array_range_query::helpers::LazySegTreeAddMax;
+    ///
+    /// let mut tree = LazySegTreeAddMax::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+    /// tree.update(1..=3, 10);
+    /// assert_eq!(tree.query(..), 14);
+    /// ```
     ///
     /// # Time Complexity
     /// O(log n)
     ///
     /// # Panics
-    /// Panics if the range is invalid (start > end) or out of bounds.
-    ///
-    /// # Examples
-    /// ```
-    /// use array_range_query::{LazySegTree, LazySegTreeSpec};
-    /// # struct RangeAddSum;
-    /// # impl LazySegTreeSpec for RangeAddSum {
-    /// #     type T = i64; type U = i64; const ID: Self::T = 0;
-    /// #     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
-    /// #     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
-    /// #     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) { *d += u * size as i64; }
-    /// # }
-    /// let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1, 2, 3, 4, 5]);
-    /// tree.update(1..4, 10); // Add 10 to elements at indices 1, 2, 3
-    /// assert_eq!(tree.query(..), 45); // 1 + 12 + 13 + 14 + 5
-    /// ```
+    /// Panics if the range is invalid or out of bounds.
     pub fn update<R: RangeBounds<usize>>(&mut self, range: R, value: Spec::U) {
-        let (left, right) = utils::parse_range(range, self.size);
-        utils::validate_range(left, right, self.size);
-
-        if left == right {
+        let (left_inp, right_inp) = utils::parse_range(range, self.size);
+        utils::validate_range(left_inp, right_inp, self.size);
+        if left_inp == right_inp {
             return;
         }
 
-        self.update_internal(1, 0, left, right, self.max_size, value);
+        let mut l = self.max_size + left_inp;
+        let mut r = self.max_size + right_inp;
+
+        for i in (1..=self.max_depth).rev() {
+            if ((l >> i) << i) != l {
+                self.push_node_mut(SegTreeNode(l >> i));
+            }
+            if ((r >> i) << i) != r {
+                self.push_node_mut(SegTreeNode((r - 1) >> i));
+            }
+        }
+
+        let l0 = l;
+        let r0 = r;
+
+        while l < r {
+            if l & 1 != 0 {
+                Self::combine_tag_option(&mut self.tags.get_mut()[l], &value);
+                l += 1;
+            }
+            if r & 1 != 0 {
+                r -= 1;
+                Self::combine_tag_option(&mut self.tags.get_mut()[r], &value);
+            }
+            l >>= 1;
+            r >>= 1;
+        }
+
+        for i in 1..=self.max_depth {
+            if ((l0 >> i) << i) != l0 {
+                self.pull_node(SegTreeNode(l0 >> i));
+            }
+            if ((r0 >> i) << i) != r0 {
+                self.pull_node(SegTreeNode((r0 - 1) >> i));
+            }
+        }
     }
 
     // ===== PRIVATE HELPER METHODS =====
 
-    /// Private helper to combine an existing optional tag with a new tag.
-    ///
-    /// If there's an existing tag, compose them using `op_on_update`.
-    /// Otherwise, install the new tag.
+    fn pull_node(&mut self, node: SegTreeNode) {
+        if node.is_leaf(self.max_depth) {
+            return;
+        }
+        let mut res = self.eval_mut(node.left_child());
+        let right_val = self.eval_mut(node.right_child());
+        Spec::op_on_data(&mut res, &right_val);
+        self.data.get_mut()[node.0] = res;
+    }
+
+    fn eval(&self, node: SegTreeNode) -> Spec::T {
+        let data = self.data.borrow();
+        let tags = self.tags.borrow();
+        let mut d = data[node.0].clone();
+        if let Some(tag) = &tags[node.0] {
+            Spec::op_update_on_data(tag, &mut d, node.size(self.max_depth));
+        }
+        d
+    }
+
+    fn eval_mut(&mut self, node: SegTreeNode) -> Spec::T {
+        let tag = self.tags.get_mut()[node.0].clone();
+        let mut d = self.data.get_mut()[node.0].clone();
+        if let Some(tag) = &tag {
+            Spec::op_update_on_data(tag, &mut d, node.size(self.max_depth));
+        }
+        d
+    }
+
+    /// Pushes the tag of the current node to its children after consuming it.
+    #[inline]
+    fn push_node(&self, node: SegTreeNode) {
+        let mut tags = self.tags.borrow_mut();
+        if let Some(tag) = tags[node.0].take() {
+            let mut data = self.data.borrow_mut();
+            Spec::op_update_on_data(&tag, &mut data[node.0], node.size(self.max_depth));
+            if !node.is_leaf(self.max_depth) {
+                Self::combine_tag_option(&mut tags[node.left_child().0], &tag);
+                Self::combine_tag_option(&mut tags[node.right_child().0], &tag);
+            }
+        }
+    }
+
+    #[inline]
+    fn push_node_mut(&mut self, node: SegTreeNode) {
+        if let Some(tag) = self.tags.get_mut()[node.0].take() {
+            let node_size = node.size(self.max_depth);
+            Spec::op_update_on_data(&tag, &mut self.data.get_mut()[node.0], node_size);
+            if !node.is_leaf(self.max_depth) {
+                let left_child_idx = node.left_child().0;
+                let right_child_idx = node.right_child().0;
+                let tags = self.tags.get_mut();
+                Self::combine_tag_option(&mut tags[left_child_idx], &tag);
+                Self::combine_tag_option(&mut tags[right_child_idx], &tag);
+            }
+        }
+    }
+
+    #[inline]
     fn combine_tag_option(existing_tag: &mut Option<Spec::U>, new_tag: &Spec::U) {
         if let Some(existing) = existing_tag {
             Spec::op_on_update(existing, new_tag);
@@ -376,140 +365,10 @@ impl<Spec: LazySegTreeSpec> LazySegTree<Spec> {
             *existing_tag = Some(new_tag.clone());
         }
     }
-
-    /// Push a pending tag at `index` down to the node's data and to its children.
-    ///
-    /// This version is used from `&self` query paths and uses `RefCell` borrows.
-    /// The `node_size` parameter represents the number of leaves covered by this node.
-    ///
-    /// # Panics
-    /// Panics if `RefCell` borrow rules are violated (e.g., conflicting borrows exist).
-    fn push(&self, index: usize, node_size: usize) {
-        let mut tags = self.tags.borrow_mut();
-        if let Some(tag) = tags[index].take() {
-            let mut data = self.data.borrow_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
-
-            if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
-            }
-        }
-    }
-
-    /// Push a pending tag at `index` down using direct mutable access.
-    ///
-    /// Called from `&mut self` update paths; avoids `RefCell` overhead for better performance.
-    fn push_mut(&mut self, index: usize, node_size: usize) {
-        let tags = self.tags.get_mut();
-        if let Some(tag) = tags[index].take() {
-            let data = self.data.get_mut();
-            Spec::op_update_on_data(&tag, &mut data[index], node_size);
-
-            if index < self.max_size {
-                Self::combine_tag_option(&mut tags[index * 2], &tag);
-                Self::combine_tag_option(&mut tags[index * 2 + 1], &tag);
-            }
-        }
-    }
-
-    /// Recompute the value at `index` from its children.
-    ///
-    /// This method pulls up values from child nodes and combines them using `op_on_data`.
-    /// Only called from `&mut self` paths, so uses direct mutable access.
-    fn pull_mut(&mut self, index: usize) {
-        let data = self.data.get_mut();
-        let mut v = data[index * 2].clone();
-        Spec::op_on_data(&mut v, &data[index * 2 + 1]);
-        data[index] = v;
-    }
-
-    /// Internal recursive query implementation.
-    ///
-    /// Traverses the tree to find nodes that overlap with the query range [left, right)
-    /// and combines their values.
-    ///
-    /// # Parameters
-    /// - `index`: Current node index in the tree array
-    /// - `node_left`, `node_right`: Half-open interval [node_left, node_right) covered by this node
-    /// - `left`, `right`: Query range [left, right)
-    fn query_internal(
-        &self,
-        index: usize,
-        node_left: usize,
-        left: usize,
-        right: usize,
-        node_right: usize,
-    ) -> Spec::T {
-        // No overlap between node range and query range
-        if node_right <= left || right <= node_left {
-            return Spec::ID;
-        }
-
-        // Ensure current node's pending tag (if any) is applied before reading
-        self.push(index, node_right - node_left);
-
-        if left <= node_left && node_right <= right {
-            // Node is fully covered by the query range
-            return self.data.borrow()[index].clone();
-        } else {
-            // Partial overlap - combine results from children
-            let mid = (node_left + node_right) / 2;
-            let mut left_result = self.query_internal(index * 2, node_left, left, right, mid);
-            let right_result = self.query_internal(index * 2 + 1, mid, left, right, node_right);
-            Spec::op_on_data(&mut left_result, &right_result);
-            left_result
-        }
-    }
-
-    /// Internal recursive update implementation.
-    ///
-    /// Applies the update `value` to all elements in the range [left, right).
-    /// Uses lazy propagation to efficiently handle range updates.
-    ///
-    /// # Parameters
-    /// - `index`: Current node index in the tree array
-    /// - `node_left`, `node_right`: Half-open interval [node_left, node_right) covered by this node
-    /// - `left`, `right`: Update range [left, right)
-    /// - `value`: Update value to apply
-    fn update_internal(
-        &mut self,
-        index: usize,
-        node_left: usize,
-        left: usize,
-        right: usize,
-        node_right: usize,
-        value: Spec::U,
-    ) {
-        if left >= node_right || right <= node_left {
-            // No overlap: ensure the node's pending tag is applied to maintain invariants
-            self.push_mut(index, node_right - node_left);
-        } else if left <= node_left && node_right <= right {
-            // Node is fully covered: apply lazy update
-            {
-                let tags = self.tags.get_mut();
-                Self::combine_tag_option(&mut tags[index], &value);
-            }
-            // Apply the update immediately to this node's stored data
-            self.push_mut(index, node_right - node_left);
-        } else {
-            // Partial overlap: push pending updates before recursing
-            self.push_mut(index, node_right - node_left);
-            let mid = (node_left + node_right) / 2;
-            self.update_internal(index * 2, node_left, left, right, mid, value.clone());
-            self.update_internal(index * 2 + 1, mid, left, right, node_right, value);
-            // Recompute this node's aggregate after updating children
-            self.pull_mut(index);
-        }
-    }
 }
 
 // ===== DISPLAY IMPLEMENTATION =====
 
-/// Helper function to pretty-print optional values arranged as a binary tree.
-///
-/// Used by the `Display` implementation to render non-identity node values and
-/// pending tags for debugging and inspection purposes.
 fn print_tree_option<T: Display>(
     f: &mut std::fmt::Formatter<'_>,
     tree: &[&Option<T>],
@@ -543,17 +402,14 @@ where
     Spec::U: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Header: show types and logical size
         writeln!(f, "LazySegTree {{")?;
         writeln!(f, "  Data Type: {}", std::any::type_name::<Spec::T>())?;
         writeln!(f, "  Update Type: {}", std::any::type_name::<Spec::U>())?;
         writeln!(f, "  Size: {} (Internal: {})", self.size, self.max_size)?;
 
-        // Inspect internal data structures
         let data = self.data.borrow();
         let tags = self.tags.borrow();
 
-        // Show only non-identity data values
         let data_values: Vec<Option<Spec::T>> = data
             .iter()
             .map(|x| {

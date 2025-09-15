@@ -1,44 +1,13 @@
-/*!
-Segment tree specialization for sum operations.
-
-This module provides a convenient wrapper around the generic `SegTree`
-for sum queries with an automatically chosen zero identity.
-
-Examples:
-
-```rust
-use array_range_query::{SegTree, SegTreeSpec};
-
-// 1) Define the sum monoid
-struct SumSpec;
-impl SegTreeSpec for SumSpec {
-    type T = i64;
-    const ID: Self::T = 0;
-    fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
-}
-
-// Example A: consume a Vec (cheap move)
-let values_owned = vec![1, 2, 3, 4, 5];
-let mut tree_owned = SegTree::<SumSpec>::from_vec(values_owned);
-assert_eq!(tree_owned.query(..), 15);
-
-// Example B: build from a slice (clones elements)
-let values = vec![1, 2, 3, 4, 5];
-let tree_from_slice = SegTree::<SumSpec>::from_slice(&values);
-assert_eq!(tree_from_slice.query(1..4), 9);
-```
-*/
+//! Segment tree for sum operations.
+//!
+//! Provides `SegTreeSum<T>` for efficient range sum queries.
 
 use crate::{SegTree, SegTreeSpec};
 use num_traits::ConstZero;
 use std::marker::PhantomData;
 use std::ops::AddAssign;
 
-/// Specification for segment trees that perform sum operations.
-///
-/// This spec works with any type `T` that implements addition and provides a
-/// constant zero via the `num_traits::ConstZero` trait. The identity element is
-/// set to that zero constant.
+/// Specification for sum operations.
 pub struct SegTreeSumSpec<T>(PhantomData<T>);
 
 impl<T> SegTreeSpec for SegTreeSumSpec<T>
@@ -53,13 +22,7 @@ where
     }
 }
 
-/// Convenience alias: a `SegTree` specialized to perform sums over `T`.
-///
-/// Usage notes:
-/// - Prefer `SegTreeSum::<T>::from_vec(vec)` when you can give ownership of the
-///   `Vec<T>` to the tree — this avoids unnecessary cloning.
-/// - Use `SegTreeSum::<T>::from_slice(&slice)` when you only have a borrowed
-///   slice and are OK with cloning each element.
+/// Segment tree specialized for sum operations.
 pub type SegTreeSum<T> = SegTree<SegTreeSumSpec<T>>;
 
 #[cfg(test)]

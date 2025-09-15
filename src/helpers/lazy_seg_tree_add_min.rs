@@ -1,14 +1,13 @@
+//! Lazy segment tree for range add updates and minimum queries.
+//!
+//! Provides `LazySegTreeAddMin<T>` for efficient range addition with minimum aggregation.
+
 use crate::{LazySegTree, LazySegTreeSpec};
 use min_max_traits::Max as ConstUpperBound;
 use std::marker::PhantomData;
 use std::ops::Add;
 
-/// Specification for lazy segment trees that perform range add updates with minimum queries.
-///
-/// This spec works with data type `T` where:
-/// - `T` supports addition, subtraction, and ordering
-/// - `T` has a maximum constant (for min aggregation)
-/// - Updates are applied uniformly to all elements in a range
+/// Specification for range add updates with minimum queries.
 pub struct LazySegTreeAddMinSpec<T>(PhantomData<T>);
 
 impl<T> LazySegTreeSpec for LazySegTreeAddMinSpec<T>

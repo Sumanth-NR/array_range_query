@@ -1,40 +1,12 @@
-//! Segment tree specialization for minimum operations.
+//! Segment tree for minimum operations.
 //!
-//! This module provides a convenient wrapper around the generic `SegTree`
-//! for minimum queries with an automatically chosen identity element.
-//!
-//! Examples
-//! ```rust
-//! use array_range_query::{SegTree, SegTreeSpec};
-//!
-//! // Define the min monoid
-//! struct MinSpec;
-//! impl SegTreeSpec for MinSpec {
-//!     type T = i32;
-//!     const ID: Self::T = i32::MAX;
-//!     fn op(a: &mut Self::T, b: &Self::T) { if *a > *b { *a = *b; } }
-//! }
-//!
-//! // Example A: consume a Vec (cheap move)
-//! let values_owned = vec![5, 2, 8, 1, 9, 3];
-//! let mut tree_owned = SegTree::<MinSpec>::from_vec(values_owned);
-//! assert_eq!(tree_owned.query(..), 1);
-//!
-//! // Example B: build from a slice (clones elements)
-//! let values = vec![5, 2, 8, 1, 9, 3];
-//! let tree_from_slice = SegTree::<MinSpec>::from_slice(&values);
-//! assert_eq!(tree_from_slice.query(1..4), 1);
-//! ```
+//! Provides `SegTreeMin<T>` for efficient range minimum queries.
 
 use crate::{SegTree, SegTreeSpec};
 use min_max_traits::Max as ConstUpperBound;
 use std::marker::PhantomData;
 
-/// Specification for segment trees that perform minimum operations.
-///
-/// This spec works with any type `T` that implements ordering and provides a
-/// constant maximum via the `min_max_traits::Max` trait. The identity element
-/// is set to the maximum constant of the type.
+/// Specification for minimum operations.
 pub struct SegTreeMinSpec<T>(PhantomData<T>);
 
 impl<T> SegTreeSpec for SegTreeMinSpec<T>
@@ -53,11 +25,19 @@ where
 
 /// Convenience alias: a `SegTree` specialized to perform minimum queries over `T`.
 ///
-/// Usage notes:
-/// - Prefer `SegTreeMin::<T>::from_vec(vec)` when you can give ownership of the
-///   `Vec<T>` to the tree — this avoids unnecessary cloning.
-/// - Use `SegTreeMin::<T>::from_slice(&slice)` when you only have a borrowed
-///   slice and are OK with cloning each element.
+/// # Example
+///
+/// ```rust
+/// use array_range_query::SegTreeMin;
+///
+/// let mut tree = SegTreeMin::<i32>::from_vec(vec![5, 2, 8, 1, 9, 3]);
+/// assert_eq!(tree.query(..), 1);
+/// assert_eq!(tree.query(..1), 5);
+///
+/// tree.update(2, 0);
+/// assert_eq!(tree.query(..), 0);
+/// assert_eq!(tree.query(3..), 1);
+/// ```
 pub type SegTreeMin<T> = SegTree<SegTreeMinSpec<T>>;
 
 #[cfg(test)]

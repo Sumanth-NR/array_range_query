@@ -1,17 +1,13 @@
-//! Lazy segment tree specialization for range add updates and sum queries.
+//! Lazy segment tree for range add updates and sum queries.
 //!
-//! This module provides a convenient wrapper around the generic `LazySegTree`
-//! for range addition updates with sum queries, supporting efficient batch operations.
+//! Provides `LazySegTreeAddSum<T>` for efficient range addition with sum aggregation.
 
 use crate::{LazySegTree, LazySegTreeSpec};
 use num_traits::ConstZero;
 use std::marker::PhantomData;
 use std::ops::Add;
 
-/// Specification for lazy segment trees that perform range add updates with sum queries.
-///
-/// This spec is restricted to work with types that support basic arithmetic operations.
-/// Both T and U must be the same numeric type that supports addition and multiplication.
+/// Specification for range add updates with sum queries.
 pub struct LazySegTreeAddSumSpec<T>(PhantomData<T>);
 
 impl<T> LazySegTreeSpec for LazySegTreeAddSumSpec<T>
@@ -39,15 +35,14 @@ where
     }
 }
 
-/// Convenience alias: a `LazySegTree` specialized for range add updates and sum queries.
+/// Lazy segment tree specialized for range add updates and sum queries.
 ///
 /// # Examples
 ///
 /// ```rust
 /// use array_range_query::LazySegTreeAddSum;
 ///
-/// let values = vec![1i32, 2, 3, 4, 5];
-/// let mut tree = LazySegTreeAddSum::<i32>::from_vec(values);
+/// let mut tree = LazySegTreeAddSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
 ///
 /// assert_eq!(tree.query(..), 15); // Sum of all elements
 ///

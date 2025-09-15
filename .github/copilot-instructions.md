@@ -87,7 +87,7 @@ Functions should be organized in logical sections with clear separators:
 - Use clear section separators with comments: `// ===== CONSTRUCTORS =====`
 - Group related functionality together.
 - Private helper methods should be well-documented even though they're internal.
-- Use meaningful variable names: `left_result`, `node_size`, `leaf_index`.
+- Use meaningful variable names: `left_result`, `size`, `leaf_index`.
 
 ## Linting & Quality Assurance
 

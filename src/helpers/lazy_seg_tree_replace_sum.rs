@@ -1,13 +1,13 @@
+//! Lazy segment tree for range assignment (replace) updates and sum queries.
+//!
+//! Provides `LazySegTreeReplaceSum<T>` for efficient range replacement with sum aggregation.
+
 use crate::{LazySegTree, LazySegTreeSpec};
 use num_traits::{ConstZero, NumCast};
 use std::marker::PhantomData;
 use std::ops::{Add, Mul};
 
-/// Specification for lazy segment trees that perform range assignment (replace) updates with sum queries.
-///
-/// This spec works with data type `T` where:
-/// - `T` supports addition and has a zero constant (for sum aggregation)
-/// - Updates are assignments (replace all values in a range with a given value)
+/// Specification for range assignment (replace) updates with sum queries.
 pub struct LazySegTreeReplaceSumSpec<T>(PhantomData<T>);
 
 impl<T> LazySegTreeSpec for LazySegTreeReplaceSumSpec<T>
@@ -40,8 +40,7 @@ where
 /// ```
 /// use array_range_query::LazySegTreeReplaceSum;
 ///
-/// let values = vec![1, 2, 3, 4, 5];
-/// let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(values);
+/// let mut tree = LazySegTreeReplaceSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
 ///
 /// assert_eq!(tree.query(..), 15); // Sum of all elements
 ///

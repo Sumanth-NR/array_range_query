@@ -1,12 +1,11 @@
-//! Lazy segment tree specialization for range add updates and maximum queries.
+//! Lazy segment tree for range add updates and maximum queries.
 //!
-//! This module provides a convenient wrapper around the generic `LazySegTree`
-//! for range addition updates with maximum queries, supporting efficient batch operations.
+//! Provides `LazySegTreeAddMax<T>` for efficient range addition with maximum aggregation.
 
 use crate::{LazySegTree, LazySegTreeSpec};
+use core::marker::PhantomData;
+use core::ops::Add;
 use min_max_traits::Min as ConstLowerBound;
-use std::marker::PhantomData;
-use std::ops::Add;
 
 /// Specification for lazy segment trees that perform range add updates with maximum queries.
 ///
@@ -54,7 +53,7 @@ where
 ///
 /// // Add 10 to range [1, 4)
 /// tree.update(1..4, 10);
-/// assert_eq!(tree.query(..), 15); // 1, max(13, 12, 15), 4 = 15
+/// assert_eq!(tree.query(..), 15); // 1, max(1, 13, 12, 15, 4) = 15
 /// ```
 pub type LazySegTreeAddMax<T> = LazySegTree<LazySegTreeAddMaxSpec<T>>;
 
