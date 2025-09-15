@@ -1,6 +1,7 @@
 //! Segment tree for maximum operations.
 //!
 //! Provides `SegTreeMax<T>` for efficient range maximum queries.
+
 use crate::{SegTree, SegTreeSpec};
 use core::marker::PhantomData;
 use min_max_traits::Min as ConstLowerBound;

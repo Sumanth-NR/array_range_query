@@ -1,9 +1,6 @@
 //! Segment tree for minimum operations.
 //!
-//! This module provides a convenient wrapper around the generic `SegTree`
-//! for minimum queries with an automatically chosen identity element.
-//!
-//! ```
+//! Provides `SegTreeMin<T>` for efficient range minimum queries.
 
 use crate::{SegTree, SegTreeSpec};
 use min_max_traits::Max as ConstUpperBound;

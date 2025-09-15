@@ -1,7 +1,6 @@
 //! High-performance segment trees and lazy segment trees for efficient range queries and updates.
 //!
 //! //! array_range_query: See full docs at <https://docs.rs/array_range_query> or in [README.md](../README.md)
-//! ![doc = include_str!("../README.md")]
 //!
 //! This library provides generic implementations of segment trees that work with any
 //! associative operation, plus specialized helper types for common operations like sum, min, and max.
