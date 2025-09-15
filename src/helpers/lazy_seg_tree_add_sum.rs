@@ -35,7 +35,7 @@ where
     }
 }
 
-/// Convenience alias: a `LazySegTree` specialized for range add updates and sum queries.
+/// Lazy segment tree specialized for range add updates and sum queries.
 ///
 /// # Examples
 ///

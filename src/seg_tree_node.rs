@@ -1,4 +1,4 @@
-//! # SegTreeNode Module
+//! Node representation for segment trees with 1-based indexing.
 //!
 //! This module provides `SegTreeNode`, a node representation for power-of-two layout segment trees.
 //! The layout uses 1-based indexing where:
@@ -33,37 +33,19 @@
 /// assert_eq!(right_child.0, 3);
 /// ```
 #[repr(transparent)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct SegTreeNode(pub usize);
 
 impl SegTreeNode {
     // ===== NAVIGATION =====
 
     /// Returns the left child of this node.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node = SegTreeNode(1);
-    /// assert_eq!(node.left_child().0, 2);
-    /// ```
     #[inline]
     pub fn left_child(&self) -> SegTreeNode {
         SegTreeNode(self.0 * 2)
     }
 
     /// Returns the right child of this node.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node = SegTreeNode(1);
-    /// assert_eq!(node.right_child().0, 3);
-    /// ```
     #[inline]
     pub fn right_child(&self) -> SegTreeNode {
         SegTreeNode(self.0 * 2 + 1)
@@ -71,14 +53,8 @@ impl SegTreeNode {
 
     /// Returns the parent of this node.
     ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node = SegTreeNode(4);
-    /// assert_eq!(node.parent().0, 2);
-    /// ```
+    /// # Panics
+    /// Panics if called on the root node.
     #[inline]
     pub fn parent(&self) -> SegTreeNode {
         if self.is_root() {
@@ -88,19 +64,7 @@ impl SegTreeNode {
         }
     }
 
-    /// Returns the sibling of this node.
-    /// Assumes that the node is not root.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(4);
-    /// let right = SegTreeNode(5);
-    /// assert_eq!(left.sibling().0, 5);
-    /// assert_eq!(right.sibling().0, 4);
-    /// ```
+    /// Returns the sibling of this node (assumes node is not root).
     #[inline]
     pub fn sibling(&self) -> SegTreeNode {
         SegTreeNode(self.0 ^ 1)
@@ -108,27 +72,8 @@ impl SegTreeNode {
 
     /// Returns the sibling of this node.
     ///
-    /// For a non-root node, the sibling is obtained by flipping the least-significant
-    /// bit of the node index (i.e. sibling_index = self.0 ^ 1). The tree uses
-    /// 1-based indexing, therefore the root node (index 1) has no sibling and
-    /// calling this method on the root will panic with the message
-    /// "Root node has no sibling".
-    ///
-    /// If you know the node is not root, you can use the `sibling()` method instead.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(2);
-    /// let right = left.sibling_safe();
-    /// assert_eq!(right.0, 3);
-    ///
-    /// let root = SegTreeNode(1);
-    /// assert!(root.is_root());
-    /// // root.sibling_safe(); // would panic: "Root node has no sibling"
-    /// ```
+    /// # Panics
+    /// Panics if called on the root node.
     #[inline]
     pub fn sibling_safe(&self) -> SegTreeNode {
         if self.is_root() {
@@ -139,106 +84,37 @@ impl SegTreeNode {
 
     // ===== PROPERTIES =====
 
-    /// Checks if the current node is root
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node = SegTreeNode(1);
-    /// assert!(node.is_root());
-    /// ```
+    /// Returns true if this is the root node.
     #[inline]
     pub fn is_root(&self) -> bool {
         self.0 == 1
     }
 
     /// Returns true if this node is a left child of its parent.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(4);
-    /// let right = SegTreeNode(5);
-    /// assert!(left.is_left_child());
-    /// assert!(!right.is_left_child());
-    /// ```
     #[inline]
     pub fn is_left_child(&self) -> bool {
         !self.is_root() && self.0 & 1 == 0
     }
 
-    /// Given that this node is not root,
-    /// checks if it is the left child of its parent.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(4);
-    /// let right = SegTreeNode(5);
-    /// assert!(left.is_left_child_if_not_root());
-    /// assert!(!right.is_left_child_if_not_root());
-    /// ```
+    /// Returns true if this node is a left child (assumes node is not root).
     #[inline]
     pub fn is_left_child_if_not_root(&self) -> bool {
         self.0 & 1 == 0
     }
 
     /// Returns true if this node is a right child of its parent.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(4);
-    /// let right = SegTreeNode(5);
-    /// assert!(!left.is_right_child());
-    /// assert!(right.is_right_child());
-    /// ```
     #[inline]
     pub fn is_right_child(&self) -> bool {
         !self.is_root() && self.0 & 1 == 1
     }
 
-    /// Given that this node is not root,
-    /// checks if it is the right child of its parent.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let left = SegTreeNode(4);
-    /// let right = SegTreeNode(5);
-    /// assert!(!left.is_right_child_if_not_root());
-    /// assert!(right.is_right_child_if_not_root());
-    /// ```
+    /// Returns true if this node is a right child (assumes node is not root).
     #[inline]
     pub fn is_right_child_if_not_root(&self) -> bool {
         self.0 & 1 == 1
     }
 
-    /// Returns the depth of this node in the tree.
-    /// Root is at depth 0.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let root = SegTreeNode(1);
-    /// let depth1 = SegTreeNode(2);
-    /// let depth2 = SegTreeNode(4);
-    /// assert_eq!(root.depth(), 0);
-    /// assert_eq!(depth1.depth(), 1);
-    /// assert_eq!(depth2.depth(), 2);
-    /// ```
+    /// Returns the depth of this node (root is at depth 0).
     #[inline]
     pub fn depth(&self) -> u32 {
         self.0.ilog2()
@@ -326,6 +202,7 @@ impl SegTreeNode {
         (pos + 1) * (1 << (max_depth - depth))
     }
 
+    /// Returns the midpoint of the range this node represents.
     #[inline]
     pub fn mid(&self, max_depth: u32) -> usize {
         let depth = self.depth();
@@ -358,21 +235,6 @@ impl SegTreeNode {
     // ===== LCA HELPERS =====
 
     /// Finds the Lowest Common Ancestor (LCA) of two nodes at the same depth.
-    ///
-    /// # Parameters
-    /// - `left`: First node
-    /// - `right`: Second node (must be at same depth as `left`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node4 = SegTreeNode(4);
-    /// let node5 = SegTreeNode(5);
-    /// let lca = SegTreeNode::get_lca_from_same_depth(node4, node5);
-    /// assert_eq!(lca.0, 2);  // Parent of both 4 and 5
-    /// ```
     pub fn get_lca_from_same_depth(left: SegTreeNode, right: SegTreeNode) -> SegTreeNode {
         // Fast path: if nodes already equal, return immediately
         let xor = left.0 ^ right.0;
@@ -389,21 +251,6 @@ impl SegTreeNode {
     }
 
     /// Finds the Lowest Common Ancestor (LCA) of two nodes at potentially different depths.
-    ///
-    /// # Parameters
-    /// - `left`: First node
-    /// - `right`: Second node
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use array_range_query::SegTreeNode;
-    ///
-    /// let node2 = SegTreeNode(2);  // Level 1
-    /// let node4 = SegTreeNode(4);  // Level 2, child of 2
-    /// let lca = SegTreeNode::get_lca_from_different_depth(node2, node4);
-    /// assert_eq!(lca.0, 2);  // LCA is node 2 itself
-    /// ```
     pub fn get_lca_from_different_depth(
         mut left: SegTreeNode,
         mut right: SegTreeNode,
@@ -418,7 +265,7 @@ impl SegTreeNode {
 
     // ===== BINDING HELPERS =====
 
-    /// Returns the binding node by traversing up while this node is a left child.
+    /// Returns the binding node by traversing up while this node is a right child.
     /// Used in segment tree range operations.
     ///
     /// # Examples
@@ -428,7 +275,7 @@ impl SegTreeNode {
     ///
     /// let node = SegTreeNode(4);  // Left child
     /// let binding = node.get_left_binding_node();
-    /// // Traverses up until finding a node that's not a left child
+    /// assert_eq!(binding, SegTreeNode(1));
     /// ```
     pub fn get_left_binding_node(&self) -> SegTreeNode {
         SegTreeNode((self.0 >> self.0.trailing_zeros()).max(1))
@@ -444,7 +291,7 @@ impl SegTreeNode {
     ///
     /// let node = SegTreeNode(5);  // Right child
     /// let binding = node.get_right_binding_node();
-    /// // Traverses up until finding a node that's not a right child
+    /// assert_eq!(binding, SegTreeNode(2));
     /// ```
     pub fn get_right_binding_node(&self) -> SegTreeNode {
         SegTreeNode((self.0 >> self.0.trailing_ones()).max(1))

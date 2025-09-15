@@ -1,70 +1,25 @@
-//! A generic, reusable Segment Tree implementation.
+//! Segment tree for efficient range queries and point updates.
 //!
-//! This module provides a `SegTree` data structure, which is useful for efficient
-//! range queries on a sequence of elements. A segment tree can answer queries
-//! for any associative operation (like summation, minimum, maximum) on a range
-//! in `O(log n)` time. Point updates are also supported in `O(log n)` time.
+//! A segment tree supports range queries and point updates in O(log n) time
+//! for any associative operation. Define operations by implementing [`SegTreeSpec`].
 //!
-//! ## Overview
-//!
-//! A segment tree is a binary tree data structure that allows efficient range queries
-//! and point updates on an array. Each leaf represents an element of the array, and
-//! each internal node represents the result of applying an associative operation
-//! to its children.
-//!
-//! ## Design
-//!
-//! The implementation follows a common Rust design pattern that separates the generic
-//! data structure logic from the specific user-defined operation:
-//!
-//! - [`SegTree<Spec>`]: The generic segment tree struct. It handles the tree structure,
-//!   indexing, and the query/update algorithms.
-//! - [`SegTreeSpec`]: A trait that you implement to define the behavior of the
-//!   segment tree. It specifies the element type and the associative binary operation
-//!   (a "monoid").
-//!
-//! ## Key Properties
-//!
-//! - **Time Complexity**: O(log n) for both queries and updates
-//! - **Space Complexity**: O(n)
-//! - **Generic**: Works with any associative operation
-//! - **Memory Efficient**: Uses a flat array representation
-//!
-//! ## Example
-//!
-//! Here is how to create a segment tree for range sum queries:
+//! # Example
 //!
 //! ```rust
 //! use array_range_query::{SegTree, SegTreeSpec};
 //!
-//! // 1. Define a struct to represent your operation
 //! struct SumSpec;
-//!
-//! // 2. Implement the `SegTreeSpec` trait for it
 //! impl SegTreeSpec for SumSpec {
-//!     // The type of the elements in the tree
 //!     type T = i64;
-//!
-//!     // The identity element for the operation (0 for addition)
 //!     const ID: Self::T = 0;
-//!
-//!     // The associative binary operation, performed in-place
-//!     fn op(a: &mut Self::T, b: &Self::T) {
-//!         *a += *b;
-//!     }
+//!     fn op(a: &mut Self::T, b: &Self::T) { *a += *b; }
 //! }
 //!
-//! // 3. Create the segment tree with your spec
 //! let values = vec![1, 2, 3, 4, 5];
-//! let mut seg_tree = SegTree::<SumSpec>::from_slice(&values);
-//!
-//! // Query the sum of the range [2, 5) -> sum of elements at indices 2, 3, and 4
-//! assert_eq!(seg_tree.query(2..5), 12);
-//! assert_eq!(seg_tree.query(..), 15);
-//!
-//! // 4. Update a value and see the query result change
-//! seg_tree.update(3, 10); // Set the element at index 3 to 10
-//! assert_eq!(seg_tree.query(..), 21);
+//! let mut tree = SegTree::<SumSpec>::from_slice(&values);
+//! assert_eq!(tree.query(2..5), 12); // sum of indices 2, 3, 4
+//! tree.update(3, 10);
+//! assert_eq!(tree.query(..), 21);
 //! ```
 
 use crate::utils;

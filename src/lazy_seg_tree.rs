@@ -1,88 +1,31 @@
-/*!
-Lazy Segment Tree (range-update, range-query) — generic implementation.
-
-## Overview
-
-This module implements a generic lazy segment tree: a binary tree stored in
-an array that supports efficient range updates and range queries.
-
-The implementation is deliberately generic and configurable via the
-`LazySegTreeSpec` trait. The trait allows you to define:
-- the stored value type `T` and the lazy-update type `U`,
-- how two values `T` are combined (aggregation),
-- how two updates `U` are composed,
-- and how a lazy update affects a node's stored aggregate (taking into account
-  the number of leaves covered by that node).
-
-## Design notes
-
-- API distinction between read and write:
-  - `query(&self, ...)` is provided as `&self`. Internally it uses
-    `RefCell` to push lazy tags while preserving a read-only public API.
-  - `update(&mut self, ...)` requires `&mut self` and uses direct mutable
-    access to the internal buffers for better performance and simpler
-    borrowing semantics.
-
-- Storage layout:
-  - A complete binary tree is stored in a `Box<[]>` (a boxed slice) using
-    1-based indexing (i.e. root at index `1`). The number of leaves is `max_size`,
-    the next power of two >= logical `size`. Total storage uses `max_size * 2` slots.
-
-- Ranges are half-open: `[left, right)`. This is consistent across
-  `query` and `update`.
-
-## Usage summary
-
-1. Implement `LazySegTreeSpec` for your problem domain (range add / range
-   sum, range assign / range min, etc.).
-2. Construct a tree:
-   - `LazySegTree::new(size)` creates a tree with all values set to `Spec::ID`.
-   - `LazySegTree::from_vec(values)` builds the tree from an initial slice.
-3. Use `query` and `update` to perform operations. `query` will return the
-   aggregate over a half-open interval, and `update` will apply a lazy
-   update to every element in the interval.
-
-## Example (Range Add + Range Sum)
-
-```rust
-use array_range_query::{LazySegTree, LazySegTreeSpec};
-
-struct RangeAddSum;
-
-impl LazySegTreeSpec for RangeAddSum {
-    type T = i64;
-    type U = i64;
-    const ID: Self::T = 0;
-
-    fn op_on_data(d1: &mut Self::T, d2: &Self::T) {
-        *d1 += *d2;
-    }
-
-    fn op_on_update(u1: &mut Self::U, u2: &Self::U) {
-        *u1 += *u2;
-    }
-
-    fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
-        *d += u * size as i64;
-    }
-}
-
-let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1,2,3,4,5]);
-assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
-tree.update(1..4, 10); // add 10 to indices 1..4
-assert_eq!(tree.query(..), 45);
-```
-
-## Panics and safety
-
-- `validate_range` asserts that `left <= right` and `right <= size`. If the
-  caller violates these preconditions the library panics with a helpful
-  message.
-- Because `query(&self, ..)` uses interior mutability (`RefCell`), a
-  runtime panic will occur if external code causes conflicting borrows that
-  violate `RefCell` rules. Typical use does not trigger this, but it is a
-  potential runtime failure mode to be aware of.
-*/
+//! Lazy segment tree for efficient range updates and range queries.
+//!
+//! A lazy segment tree supports both range updates and range queries in O(log n) time
+//! using lazy propagation. Define operations by implementing [`LazySegTreeSpec`].
+//!
+//! # Example
+//!
+//! ```rust
+//! use array_range_query::{LazySegTree, LazySegTreeSpec};
+//!
+//! struct RangeAddSum;
+//! impl LazySegTreeSpec for RangeAddSum {
+//!     type T = i64;
+//!     type U = i64;
+//!     const ID: Self::T = 0;
+//!
+//!     fn op_on_data(d1: &mut Self::T, d2: &Self::T) { *d1 += *d2; }
+//!     fn op_on_update(u1: &mut Self::U, u2: &Self::U) { *u1 += *u2; }
+//!     fn op_update_on_data(u: &Self::U, d: &mut Self::T, size: usize) {
+//!         *d += u * size as i64;
+//!     }
+//! }
+//!
+//! let mut tree = LazySegTree::<RangeAddSum>::from_vec(vec![1,2,3,4,5]);
+//! assert_eq!(tree.query(1..4), 9); // 2 + 3 + 4
+//! tree.update(1..4, 10); // add 10 to indices 1..4
+//! assert_eq!(tree.query(..), 45);
+//! ```
 
 use crate::{utils, SegTreeNode};
 use core::marker::PhantomData;

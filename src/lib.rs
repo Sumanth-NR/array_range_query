@@ -1,5 +1,27 @@
-//! array_range_query: See full docs at <https://docs.rs/array_range_query> or in [README.md](../README.md)
-#![doc = include_str!("../README.md")]
+//! High-performance segment trees and lazy segment trees for efficient range queries and updates.
+//!
+//! //! array_range_query: See full docs at <https://docs.rs/array_range_query> or in [README.md](../README.md)
+//! ![doc = include_str!("../README.md")]
+//!
+//! This library provides generic implementations of segment trees that work with any
+//! associative operation, plus specialized helper types for common operations like sum, min, and max.
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use array_range_query::{SegTreeSum, LazySegTreeAddSum};
+//!
+//! // Segment tree for range sum queries
+//! let mut tree = SegTreeSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+//! assert_eq!(tree.query(1..4), 9); // sum of [2, 3, 4]
+//! tree.update(2, 10);
+//! assert_eq!(tree.query(..), 22);
+//!
+//! // Lazy segment tree for range add updates and sum queries
+//! let mut lazy_tree = LazySegTreeAddSum::<i32>::from_vec(vec![1, 2, 3, 4, 5]);
+//! lazy_tree.update(1..4, 10); // add 10 to range [1, 4)
+//! assert_eq!(lazy_tree.query(..), 45);
+//! ```
 
 pub(crate) mod utils;
 
