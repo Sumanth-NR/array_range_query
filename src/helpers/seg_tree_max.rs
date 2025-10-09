@@ -3,8 +3,8 @@
 //! Provides `SegTreeMax<T>` for efficient range maximum queries.
 
 use crate::{SegTree, SegTreeSpec};
-use core::marker::PhantomData;
 use min_max_traits::Min as ConstLowerBound;
+use std::marker::PhantomData;
 
 /// Specification for maximum operations.
 pub struct SegTreeMaxSpec<T>(PhantomData<T>);
