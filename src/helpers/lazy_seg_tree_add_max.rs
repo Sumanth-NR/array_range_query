@@ -3,9 +3,9 @@
 //! Provides `LazySegTreeAddMax<T>` for efficient range addition with maximum aggregation.
 
 use crate::{LazySegTree, LazySegTreeSpec};
-use core::marker::PhantomData;
-use core::ops::Add;
 use min_max_traits::Min as ConstLowerBound;
+use std::marker::PhantomData;
+use std::ops::Add;
 
 /// Specification for lazy segment trees that perform range add updates with maximum queries.
 ///
