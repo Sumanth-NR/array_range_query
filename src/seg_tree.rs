@@ -288,19 +288,6 @@ mod tests {
         }
     }
 
-    /// Test specification for maximum operations.
-    struct MaxSpec;
-    impl SegTreeSpec for MaxSpec {
-        type T = i32;
-        const ID: Self::T = i32::MIN;
-
-        fn op(a: &mut Self::T, b: &Self::T) {
-            if *a < *b {
-                *a = *b;
-            }
-        }
-    }
-
     #[test]
     fn test_new_empty() {
         let seg_tree = SegTree::<SumSpec>::new(10);
