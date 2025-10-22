@@ -1,6 +1,6 @@
 //! # array_range_query: High-Performance Segment Trees for Range Queries
 //!
-//! **Complete Rust implementation of Segment Trees and Lazy Segment Trees for efficient 
+//! **Complete Rust implementation of Segment Trees and Lazy Segment Trees for efficient
 //! range queries, range updates, and interval operations.**
 //!
 //! This crate provides generic, type-safe implementations of segment trees that work with
@@ -22,7 +22,7 @@
 //!
 //! ## Common Use Cases
 //!
-//! - **Competitive Programming**: Solving interval query problems on platforms like Codeforces, 
+//! - **Competitive Programming**: Solving interval query problems on platforms like Codeforces,
 //!   AtCoder, LeetCode, HackerRank
 //! - **Range Minimum/Maximum Query (RMQ)**: Find min/max in any subarray
 //! - **Range Sum Query (RSQ)**: Calculate sums over arbitrary intervals
@@ -86,7 +86,7 @@
 //! impl SegTreeSpec for MaxSpec {
 //!     type T = i32;
 //!     const ID: Self::T = i32::MIN; // identity element
-//!     fn op(a: &mut Self::T, b: &Self::T) { 
+//!     fn op(a: &mut Self::T, b: &Self::T) {
 //!         *a = (*a).max(*b); // associative operation
 //!     }
 //! }
