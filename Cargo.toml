@@ -3,14 +3,14 @@ name = "array_range_query"
 version = "0.2.2"
 edition = "2021"
 authors = ["Sumanth NR <sumanth.nr.w@gmail.com>"]
-description = "Generic segment tree and lazy segment tree implementations for efficient range queries and range updates"
+description = "High-performance generic segment tree and lazy segment tree implementations in Rust for efficient range queries, range updates, and interval operations. Supports custom monoid operations with zero-cost abstractions."
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/Sumanth-NR/array_range_query"
 homepage = "https://github.com/Sumanth-NR/array_range_query"
 documentation = "https://docs.rs/array_range_query"
-keywords = ["segment-tree", "range-query", "data-structures", "algorithms"]
-categories = ["data-structures", "algorithms"]
+keywords = ["segment-tree", "range-query", "data-structures", "lazy-propagation", "interval-tree"]
+categories = ["data-structures", "algorithms", "no-std"]
 
 [dependencies]
 min_max_traits = "0.1.0"
