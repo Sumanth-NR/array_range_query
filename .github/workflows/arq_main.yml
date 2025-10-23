@@ -12,15 +12,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: rust:slim
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install required tools
-      run: |
-        rustup component add clippy rustfmt
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: clippy, rustfmt
+
+    - uses: Swatinem/rust-cache@v2
 
     - name: Check formatting
       run: cargo fmt --all -- --check
