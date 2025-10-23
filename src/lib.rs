@@ -1,10 +1,5 @@
 //! High-performance segment trees and lazy segment trees for efficient range queries and updates.
 //!
-//! //! array_range_query: See full docs at <https://docs.rs/array_range_query> or in [README.md](../README.md)
-//!
-//! This library provides generic implementations of segment trees that work with any
-//! associative operation, plus specialized helper types for common operations like sum, min, and max.
-//!
 //! # Quick Start
 //!
 //! ```rust
@@ -21,6 +16,8 @@
 //! lazy_tree.update(1..4, 10); // add 10 to range [1, 4)
 //! assert_eq!(lazy_tree.query(..), 45);
 //! ```
+//!
+//! For detailed documentation, examples, and use cases, see the [README](https://github.com/Sumanth-NR/array_range_query#readme).
 
 pub(crate) mod utils;
 
