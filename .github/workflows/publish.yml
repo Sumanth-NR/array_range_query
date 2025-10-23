@@ -1,84 +1,66 @@
 name: Publish to crates.io
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'Cargo.toml'
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check-version:
+  check-and-publish:
+    # Only run if CI passed
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    outputs:
-      version-changed: ${{ steps.version-check.outputs.changed }}
-      version: ${{ steps.get-version.outputs.version }}
+    
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Get current version
-      id: get-version
-      run: |
-        VERSION=$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $VERSION"
-
-    - name: Check if version exists on crates.io
-      id: version-check
-      run: |
-        CURRENT_VERSION="${{ steps.get-version.outputs.version }}"
-        CRATE_NAME="array_range_query"
-        
-        echo "Current version in Cargo.toml: $CURRENT_VERSION"
-        
-        # Query crates.io API for the crate information
-        RESPONSE=$(curl -s -w "\n%{http_code}" "https://crates.io/api/v1/crates/$CRATE_NAME")
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        CRATE_INFO=$(echo "$RESPONSE" | head -n-1)
-        
-        if [ "$HTTP_CODE" != "200" ]; then
-          echo "Warning: Could not fetch crate info from crates.io (HTTP $HTTP_CODE)"
-          echo "Assuming version is new and should be published"
-          echo "changed=true" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        
-        # Extract the latest version from crates.io using grep and sed
-        PUBLISHED_VERSION=$(echo "$CRATE_INFO" | grep -o '"max_version":"[^"]*"' | head -1 | sed 's/"max_version":"\(.*\)"/\1/')
-        
-        if [ -z "$PUBLISHED_VERSION" ]; then
-          echo "Warning: Could not extract published version from API response"
-          echo "Assuming version is new and should be published"
-          echo "changed=true" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        
-        echo "Latest published version: $PUBLISHED_VERSION"
-        
-        if [ "$CURRENT_VERSION" != "$PUBLISHED_VERSION" ]; then
-          echo "Version has changed - will publish"
-          echo "changed=true" >> $GITHUB_OUTPUT
-        else
-          echo "Version unchanged - skipping publish"
-          echo "changed=false" >> $GITHUB_OUTPUT
-        fi
-
-  publish:
-    needs: check-version
-    if: needs.check-version.outputs.version-changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
+    
     - uses: actions-rust-lang/setup-rust-toolchain@v1
-
-    - uses: Swatinem/rust-cache@v2
-
+    
+    - name: Get current version from Cargo.toml
+      id: cargo-version
+      run: |
+        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current Cargo.toml version: $VERSION"
+    
+    - name: Check if version exists on crates.io
+      id: crates-check
+      run: |
+        CRATE_NAME="array_range_query"
+        VERSION="${{ steps.cargo-version.outputs.version }}"
+        
+        # Query crates.io API
+        RESPONSE=$(curl -s "https://crates.io/api/v1/crates/$CRATE_NAME")
+        PUBLISHED_VERSION=$(echo "$RESPONSE" | grep -o '"newest_version":"[^"]*"' | cut -d'"' -f4)
+        
+        echo "Published version on crates.io: $PUBLISHED_VERSION"
+        echo "Cargo.toml version: $VERSION"
+        
+        if [ "$VERSION" = "$PUBLISHED_VERSION" ]; then
+          echo "should-publish=false" >> $GITHUB_OUTPUT
+          echo "⏭️  Version $VERSION already published, skipping"
+        else
+          echo "should-publish=true" >> $GITHUB_OUTPUT
+          echo "✅ New version detected: $PUBLISHED_VERSION → $VERSION"
+        fi
+    
     - name: Publish to crates.io
-      run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      if: steps.crates-check.outputs.should-publish == 'true'
+      run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
       env:
-        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+    
+    - name: Create and push git tag
+      if: steps.crates-check.outputs.should-publish == 'true'
+      run: |
+        VERSION="${{ steps.cargo-version.outputs.version }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag "v$VERSION"
+        git push origin "v$VERSION"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
