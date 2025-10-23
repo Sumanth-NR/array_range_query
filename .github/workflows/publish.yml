@@ -1,0 +1,66 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-and-publish:
+    # Only run if CI passed
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+    
+    - name: Get current version from Cargo.toml
+      id: cargo-version
+      run: |
+        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current Cargo.toml version: $VERSION"
+    
+    - name: Check if version exists on crates.io
+      id: crates-check
+      run: |
+        CRATE_NAME="array_range_query"
+        VERSION="${{ steps.cargo-version.outputs.version }}"
+        
+        # Query crates.io API
+        RESPONSE=$(curl -s "https://crates.io/api/v1/crates/$CRATE_NAME")
+        PUBLISHED_VERSION=$(echo "$RESPONSE" | grep -o '"newest_version":"[^"]*"' | cut -d'"' -f4)
+        
+        echo "Published version on crates.io: $PUBLISHED_VERSION"
+        echo "Cargo.toml version: $VERSION"
+        
+        if [ "$VERSION" = "$PUBLISHED_VERSION" ]; then
+          echo "should-publish=false" >> $GITHUB_OUTPUT
+          echo "⏭️  Version $VERSION already published, skipping"
+        else
+          echo "should-publish=true" >> $GITHUB_OUTPUT
+          echo "✅ New version detected: $PUBLISHED_VERSION → $VERSION"
+        fi
+    
+    - name: Publish to crates.io
+      if: steps.crates-check.outputs.should-publish == 'true'
+      run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+    
+    - name: Create and push git tag
+      if: steps.crates-check.outputs.should-publish == 'true'
+      run: |
+        VERSION="${{ steps.cargo-version.outputs.version }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag "v$VERSION"
+        git push origin "v$VERSION"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
