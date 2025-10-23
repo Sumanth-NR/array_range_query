@@ -1,6 +1,6 @@
 [package]
 name = "array_range_query"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["Sumanth NR <sumanth.nr.w@gmail.com>"]
 description = "High-performance generic segment tree and lazy segment tree implementations in Rust for efficient range queries, range updates, and interval operations. Supports custom monoid operations with zero-cost abstractions."

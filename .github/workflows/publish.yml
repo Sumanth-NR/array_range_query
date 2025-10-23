@@ -1,8 +1,8 @@
-name: Publish to crates.io
+name: Publish
 
 on:
   workflow_run:
-    workflows: ["ci"]
+    workflows: ["CI"]
     types: [completed]
     branches: [main]
 
